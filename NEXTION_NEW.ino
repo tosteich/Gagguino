@@ -1,3 +1,4 @@
+
 #include <WiFi.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
@@ -20,6 +21,7 @@
 #define PUMP_DIMMER_M1_PIN 18  
 #define PUMP_DIMMER_M2_PIN 19  
 #define SENSORS_PERIOD 200
+#define PUMP_PID_PERIOD 20
 #define MAX_BOILER_PERIOD 1000
 
 #define TARGET_TEMP 0
@@ -51,7 +53,7 @@ float lastSentTemperature = 1;
 float currentPressure = 0;
 float lastSentPressure = 0;
 int heatPower;
-int pumpPower = 100;    
+volatile int pumpPower = 100;    
 long resetTime = 0;
 long currTimeInSec = 0;
 boolean isBrewEnabled = false;
@@ -92,11 +94,12 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
 GaggiaPid boilerPid(SENSORS_PERIOD);
-GaggiaPid pumpPid(SENSORS_PERIOD);
+GaggiaPid pumpPid(PUMP_PID_PERIOD);
 Boiler boiler(MAX_BOILER_PERIOD);
 LMT01 thermoLmt;
 Manometer manometer;
 
+Timer pumpPidTimer(PUMP_PID_PERIOD);
 Timer sensorsTimer(SENSORS_PERIOD);
 Timer steamButtonTimer(100);
 Timer displayTimer(1000);
@@ -121,6 +124,8 @@ void loop() {
 
   updateVariablesFromSensorsData(); 
 
+  updatePumpPower();
+
   boiler.updateHeater();
 
   firstRefresh();
@@ -138,26 +143,41 @@ void updateVariablesFromSensorsData() {
     }
     boiler.setHeatPower(heatPower);
     stopWatch.run(ws, myNex);
-    if (stopWatch.getIsFlow()) {  
-      if (isBrewEnabled) {
-        if(isManual) {
-          pumpPid.setSetPoint(manualPressure);  
-//          Serial.println(pumpPid.getSetPoint());
-        } else {
-          managePumpPid(stopWatch.getTimerTime());            
+  }
+}
+
+void updatePumpPower()
+{
+    if (stopWatch.getIsFlow()) 
+    {  
+      if (isBrewEnabled) 
+      {
+        if (sensorsTimer.ready())
+        {
+          if(isManual) 
+          {
+            pumpPid.setSetPoint(manualPressure);  
+          } 
+          else 
+          {
+            managePumpPidSetPoint(stopWatch.getTimerTime());            
+          }
         }
-        pumpPower = pumpPid.getResult(currentPressure * 10);
-      } else {
+        if (pumpPidTimer.ready())
+        {
+           pumpPower = pumpPid.getResult(manometer.getPressure() * 10);            
+        }
+      } 
+      else if (pumpPower != 100)
+      {
         pumpPower = 100;
       } 
     }
-  }
 }
 
 void updateUi() {
   if (displayTimer.ready()) {
     updateGraphsInfo();
-    // updateLog();
     currTimeInSec = (millis() - stopWatch.getResetTime()) / 1000;
     updateInfoToClients();
     sendInfoToDisplay();
@@ -187,30 +207,24 @@ void firstRefresh() {
   }
 }
 
-void managePumpPid(int flowTime)
+void managePumpPidSetPoint(int flowTime)
 {
     float passedTime = flowTime / 1000.0;
     if (passedTime < settings[PREINFUSE_DURATION].value)
     {
        pumpPid.setSetPoint(settings[PREINFUSE_PRESSURE].value);
-//       Serial.println(pumpPid.getSetPoint());
        return; 
     } 
     int holdTime = settings[PREINFUSE_DURATION].value + settings[HOLD_DURATION].value;
     if (passedTime < holdTime)
     {
        pumpPid.setSetPoint(settings[HOLD_PRESSURE].value);
-//       Serial.print("hold");
-//       Serial.println(pumpPid.getSetPoint());
        return; 
     }
     int declineTime = (int) passedTime - holdTime;
     if (declineTime < settings[DECLINE_DURATION].value)
     {
        pumpPid.setSetPoint(declineMatrix[declineTime]);
-//       Serial.print("Declinetime - ");
-//       Serial.println(declineTime);
-//       Serial.println(pumpPid.getSetPoint());
     }
 }
 
