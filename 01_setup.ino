@@ -45,8 +45,6 @@ void setup(void) {
 
   initPulseCounter();
   initPulseCounterTimer();
-  initFlowCounterTimer();
-  initButtonCheckTimer();
   initDeclineMatrix();
 
   for(uint8_t i = 0; i < sizeof(settings)/sizeof(setting); ++i) {
