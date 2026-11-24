@@ -58,12 +58,18 @@ void checkCounter() {
   pulseCounter = count;
   if (pulseCounter > 0) {
     if (oldPulseCount == pulseCounter) {
-      thermoLmt.setCurrentPulses(pulseCounter);
+      // Never treat a single plausible noisy burst as trusted temperature.
+      // Clear PCNT before evaluating the completed frame.
       ESP_ERROR_CHECK(pcnt_unit_clear_count(lmtPcntUnit));
       oldPulseCount = 0;
+      if (temperatureGuard.accept(pulseCounter, millis())) {
+        thermoLmt.setCurrentPulses(pulseCounter);
+      }
     } else {
       oldPulseCount = pulseCounter;
     }
+  } else {
+    oldPulseCount = 0;
   }
 }
 
