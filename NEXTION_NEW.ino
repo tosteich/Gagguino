@@ -60,8 +60,8 @@ boolean isBrewEnabled = false;
 boolean isSteaming = false;
 boolean isManual = false;
 int manualPressure=0;
-boolean timeToCheckCounter = false;
-boolean flowButtonIsPressed = false;
+volatile bool timeToCheckCounter = false;
+volatile bool flowButtonIsPressed = false;
 boolean lcdPauseButtonPressed = false;
 int declineMatrix[60];
 
