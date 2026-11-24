@@ -3,6 +3,9 @@
 // GPIO14, GPIO18, GPIO19 and all other pins MUST remain unconnected.
 #ifdef GAGGUINO_LMT_BENCH_TEST
 #include <Arduino.h>
+#include "soc/soc.h"
+#include "soc/gpio_reg.h"
+#include "driver/gpio.h"
 // Arduino concatenates .ino files alphabetically. pulseCounter.ino is later,
 // so diagnostic globals defined there need forward declarations here.
 extern int pulseCounter;
@@ -26,12 +29,16 @@ constexpr uint32_t BENCH_BURST_MS = 120;
 volatile uint32_t benchGeneratorBursts = 0;
 volatile bool benchPulseActive = false;
 volatile bool benchForcedLow = true;
+volatile uint32_t benchLowWrites = 0;
+volatile uint32_t benchImmediateHigh = 0;
 
 // Force the wire to a real GPIO LOW state between hardware pulse bursts.
 // ledcWrite(pin, 0) alone was NOT observed as LOW on this ESP32.
 void benchForceOutputLow() {
   pinMode(BENCH_GENERATOR_PIN, OUTPUT);
   digitalWrite(BENCH_GENERATOR_PIN, LOW);
+  ++benchLowWrites;
+  if (digitalRead(BENCH_GENERATOR_PIN) != LOW) ++benchImmediateHigh;
 }
 
 void benchGeneratorTask(void*) {
@@ -106,6 +113,21 @@ void reportBenchLmtSimulation() {
                 (unsigned long)benchPcntErrors,
                 (unsigned long)benchPcntReads,
                 (unsigned long)benchGeneratorBursts);
-  Serial.printf("BENCH lastFrame=%d\n", benchLastFrameCount);
+  const uint32_t pin23Mask = (1UL << BENCH_GENERATOR_PIN);
+  const uint32_t pin25Mask = (1UL << LMT_PIN);
+  const uint32_t outEn = REG_READ(GPIO_ENABLE_REG);
+  const uint32_t out = REG_READ(GPIO_OUT_REG);
+  const uint32_t in = REG_READ(GPIO_IN_REG);
+  Serial.printf("BENCH GPIO hw_en23=%u hw_out23=%u hw_in23=%u hw_in25=%u lowWrites=%lu immediateHigh=%lu lastFrame=%d\n",
+                (outEn & pin23Mask) ? 1 : 0, (out & pin23Mask) ? 1 : 0,
+                (in & pin23Mask) ? 1 : 0, (in & pin25Mask) ? 1 : 0,
+                (unsigned long)benchLowWrites, (unsigned long)benchImmediateHigh,
+                benchLastFrameCount);
+  static uint32_t lastDump = 0;
+  if ((uint32_t)(now - lastDump) >= 10000) {
+    lastDump = now;
+    Serial.println("BENCH IO MUX / GPIO matrix diagnostic:");
+    gpio_dump_io_configuration(stdout, (1ULL << BENCH_GENERATOR_PIN) | (1ULL << LMT_PIN));
+  }
 }
 #endif
