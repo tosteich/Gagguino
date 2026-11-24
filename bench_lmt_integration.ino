@@ -85,8 +85,11 @@ void setupBenchLmtSimulation() {
   // USB-only diagnostic: do not allow GPIO25 (PCNT input) to drive
   // against GPIO23. Preserve PCNT input matrix routing; do not call
   // gpio_config(), which would reset it.
-  esp_err_t disabled = gpio_output_disable(GPIO_NUM_25);
-  Serial.printf("BENCH gpio25 output_disable=%d\\n", (int)disabled);
+  // ESP32 output-enable clear register: disables GPIO25 output without
+  // changing the PCNT input signal routing in GPIO Matrix.
+  REG_WRITE(GPIO_ENABLE_W1TC_REG, (1UL << LMT_PIN));
+  Serial.printf("BENCH gpio25 output_enabled=%u\n",
+                (REG_READ(GPIO_ENABLE_REG) & (1UL << LMT_PIN)) ? 1U : 0U);
   // With the jumper removed, the internal pulldown supplies a known
   // LOW level instead of letting GPIO25 float. BENCH ONLY.
   esp_err_t pullupOff = gpio_pullup_dis(GPIO_NUM_25);
