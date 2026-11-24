@@ -57,13 +57,17 @@ void initDeclineMatrix()
 {
   const int matrixSize = sizeof(declineMatrix) / sizeof(declineMatrix[0]);
   const int duration = constrain(settings[DECLINE_DURATION].value, 0, matrixSize);
-  if (duration > 0)
-  {
-      const int step = (settings[HOLD_PRESSURE].value - settings[DECLINE_PRESSURE].value) / duration;
-
-      declineMatrix[0] = settings[HOLD_PRESSURE].value - step;
-      for (int i = 1; i < duration; ++i) {
-          declineMatrix[i] = declineMatrix[i - 1] - step;
-      }
+  if (duration <= 0) {
+    return;
   }
-}    
+
+  const int startPressure = settings[HOLD_PRESSURE].value;
+  const int endPressure = settings[DECLINE_PRESSURE].value;
+  const int64_t pressureDelta = (int64_t)endPressure - startPressure;
+
+  for (int i = 0; i < duration; ++i) {
+    // Use the total change rather than truncating a per-second step.
+    // The final element reaches endPressure exactly.
+    declineMatrix[i] = startPressure + (int)(pressureDelta * (i + 1) / duration);
+  }
+}
