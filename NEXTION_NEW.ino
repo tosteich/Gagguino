@@ -61,7 +61,7 @@ boolean isSteaming = false;
 boolean isManual = false;
 int manualPressure=0;
 volatile bool timeToCheckCounter = false;
-volatile bool flowButtonIsPressed = false;
+bool flowButtonIsPressed = false;
 boolean lcdPauseButtonPressed = false;
 int declineMatrix[60];
 
