@@ -20,7 +20,9 @@ void IRAM_ATTR onPumpTimer() {
 void IRAM_ATTR handleInterrupt() 
 {
     portENTER_CRITICAL_ISR(&pumpTimerMux);
-    power = 49000 - 478.5 * pumpPower;
+    // Do not allow invalid PID output to produce out-of-half-cycle alarms.
+    const int requestedPower = constrain((int)pumpPower, 0, 100);
+    power = 49000 - 478.5 * requestedPower;
     timerWrite(pumpTimer, 0);
     timerAlarmWrite(pumpTimer, power, true);
     
