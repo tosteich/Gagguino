@@ -4,8 +4,8 @@
 // ONLY USB and a short insulated 3.3 V GPIO-to-GPIO wire; NO mains or dimmer.
 // GPIO18 is an output and MUST remain unconnected.
 //
-// Test plan: 6 seconds of 100 Hz zero-cross signals followed by 4 seconds
-// without signals; repeating. Serial Monitor: 115200 baud.
+// Test plan: five automatic power levels, each with 6 s at 100 Hz followed
+// by 4 s of silence; repeating. Serial Monitor: 115200 baud.
 //
 // This intentionally exercises the same timerAlarm() from a GPIO ISR path
 // as the draft production pump. A crash/hang indicates a failed test.
@@ -15,7 +15,8 @@ constexpr uint8_t ZC_IN = 19;
 constexpr uint8_t ZC_GENERATOR = 23;
 constexpr uint8_t GATE_OUT = 18;
 constexpr uint32_t TIMER_HZ = 5000000;
-constexpr uint32_t DELAY_TICKS = 25075; // pumpPower=50, approx 5.015 ms
+constexpr uint8_t POWERS[] = {0, 25, 50, 75, 100};
+constexpr uint8_t POWER_COUNT = sizeof(POWERS) / sizeof(POWERS[0]);
 constexpr uint32_t GATE_PULSE_US = 40;
 constexpr uint32_t HALF_CYCLE_US = 10000;
 constexpr uint32_t TEST_ACTIVE_MS = 6000;
@@ -28,6 +29,11 @@ volatile uint32_t zeroCrossCount = 0;
 volatile uint32_t gateCount = 0;
 volatile uint32_t unexpectedTimerCount = 0;
 volatile uint32_t overwrittenPendingCount = 0;
+volatile uint32_t lastZeroCrossUs = 0;
+volatile uint32_t minDelayUs = UINT32_MAX;
+volatile uint32_t maxDelayUs = 0;
+volatile uint32_t timingSamples = 0;
+volatile uint8_t requestedPower = 0;
 
 void ARDUINO_ISR_ATTR onGateTimer() {
   bool fire = false;
@@ -35,6 +41,11 @@ void ARDUINO_ISR_ATTR onGateTimer() {
   if (pulsePending) {
     pulsePending = false;
     ++gateCount;
+    // Software estimate, not an oscilloscope measurement.
+    const uint32_t delayUs = (uint32_t)(micros() - lastZeroCrossUs);
+    if (delayUs < minDelayUs) minDelayUs = delayUs;
+    if (delayUs > maxDelayUs) maxDelayUs = delayUs;
+    ++timingSamples;
     fire = true;
   } else {
     ++unexpectedTimerCount;
@@ -50,10 +61,12 @@ void ARDUINO_ISR_ATTR onGateTimer() {
 void ARDUINO_ISR_ATTR onZeroCross() {
   portENTER_CRITICAL_ISR(&stateMux);
   ++zeroCrossCount;
+  lastZeroCrossUs = micros();
   if (pulsePending) ++overwrittenPendingCount;
   pulsePending = true;
   timerWrite(phaseTimer, 0);
-  timerAlarm(phaseTimer, DELAY_TICKS, false, 0);
+  const uint32_t delayTicks = (uint32_t)(49000 - 478.5 * requestedPower);
+  timerAlarm(phaseTimer, delayTicks, false, 0);
   portEXIT_CRITICAL_ISR(&stateMux);
 }
 
@@ -76,7 +89,8 @@ void setup() {
 
   Serial.printf("START: core=%s timerHz=%lu GPIO23 -> GPIO19 required\n",
                 ESP.getSdkVersion(), (unsigned long)timerGetFrequency(phaseTimer));
-  Serial.println("6 s pulses / 4 s silence; output GPIO18 must be unconnected");
+  Serial.println("Cycle: 0,25,50,75,100%; 6 s active / 4 s silence each");
+  Serial.println("GPIO18 output must remain unconnected");
 }
 
 void loop() {
@@ -85,8 +99,24 @@ void loop() {
   static uint32_t lastEdgeUs = micros();
   static bool generatorLevel = false;
   static bool previousActive = false;
+  static uint8_t previousStage = 255;
   const uint32_t nowMs = millis();
-  const bool active = ((uint32_t)(nowMs - bootMs) % TEST_PERIOD_MS) < TEST_ACTIVE_MS;
+  const uint32_t elapsedMs = (uint32_t)(nowMs - bootMs);
+  const uint8_t stage = (elapsedMs / TEST_PERIOD_MS) % POWER_COUNT;
+  const uint32_t stageElapsedMs = elapsedMs % TEST_PERIOD_MS;
+  const bool active = stageElapsedMs < TEST_ACTIVE_MS;
+
+  if (stage != previousStage) {
+    generatorLevel = false;
+    digitalWrite(ZC_GENERATOR, LOW);
+    previousActive = false;
+    portENTER_CRITICAL(&stateMux);
+    requestedPower = POWERS[stage];
+    portEXIT_CRITICAL(&stateMux);
+    previousStage = stage;
+    Serial.printf("STAGE power=%u%% expectedDelay=%.2f us\n",
+                  POWERS[stage], (49000 - 478.5 * POWERS[stage]) / 5.0);
+  }
 
   if (!active) {
     if (generatorLevel) {
@@ -110,7 +140,7 @@ void loop() {
 
   if ((uint32_t)(nowMs - lastReportMs) >= 1000) {
     lastReportMs = nowMs;
-    uint32_t crossings, fired, unexpected, overwritten;
+    uint32_t crossings, fired, unexpected, overwritten, lo, hi, samples;
     bool pending;
     portENTER_CRITICAL(&stateMux);
     crossings = zeroCrossCount;
@@ -118,10 +148,15 @@ void loop() {
     unexpected = unexpectedTimerCount;
     overwritten = overwrittenPendingCount;
     pending = pulsePending;
+    lo = minDelayUs;
+    hi = maxDelayUs;
+    samples = timingSamples;
     portEXIT_CRITICAL(&stateMux);
-    Serial.printf("%s zc=%lu gate=%lu pending=%d unexpected=%lu overwritten=%lu\n",
-                  active ? "ACTIVE" : "SILENT",
+    Serial.printf("power=%u %s zc=%lu gate=%lu pending=%d unexpected=%lu overwritten=%lu delayUs(min/max)=%lu/%lu samples=%lu\n",
+                  POWERS[stage], active ? "ACTIVE" : "SILENT",
                   (unsigned long)crossings, (unsigned long)fired, pending,
-                  (unsigned long)unexpected, (unsigned long)overwritten);
+                  (unsigned long)unexpected, (unsigned long)overwritten,
+                  (unsigned long)(samples ? lo : 0),
+                  (unsigned long)hi, (unsigned long)samples);
   }
 }
