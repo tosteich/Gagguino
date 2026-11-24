@@ -6,7 +6,7 @@ String processor(const String &var) {
     return getPressure();
   }
   if (var == "TARGETTEMP") {
-    return String(TARGET_TEMP);
+    return String(settings[TARGET_TEMP].value);
   }
   if (var == "PID_KP") {
     return String(boilerPid.getKp());
@@ -151,9 +151,21 @@ void initWebServerControllers() {
   server.on("/targetTemp", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("temp")) {
       String str = request->getParam("temp")->value();
-      int newTemp = str.toInt();
-      changeTargetTemp(newTemp);
-      Serial.printf("New target temp - %u\n", newTemp);
+      // Validate before converting to byte to avoid integer wraparound.
+      bool valid = str.length() > 0;
+      for (size_t i = 0; i < str.length(); ++i) {
+        if (str[i] < '0' || str[i] > '9') {
+          valid = false;
+          break;
+        }
+      }
+      const long newTemp = valid ? str.toInt() : -1;
+      if (newTemp < 0 || newTemp >= 145) {
+        request->send(400, "text/plain", "Invalid target temperature");
+        return;
+      }
+      changeTargetTemp((byte)newTemp);
+      Serial.printf("New target temp - %ld\n", newTemp);
     }
     request->send_P(200, "text/plain", "OK");
   });
