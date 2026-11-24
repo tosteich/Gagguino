@@ -18,9 +18,8 @@ extern uint32_t benchPcntErrors;
 extern int benchLargestCount;
 extern int benchLastFrameCount;
 constexpr uint8_t BENCH_GENERATOR_PIN = 23;
-// Temporary isolation test: true = never attach LEDC, drive GPIO23 LOW only.
-// Restore to false after diagnosis to run the integration pulse test.
-constexpr bool BENCH_LOW_ONLY = true;
+// Switch to true only when isolating the GPIO line without pulse generation.
+constexpr bool BENCH_LOW_ONLY = false;
 constexpr uint32_t BENCH_CYCLE_MS = 20000; // 10s forced LOW + 6s pulses + 4s silence
 constexpr uint32_t BENCH_ACTIVE_MS = 6000;
 constexpr int BENCH_LMT_PULSES = 1200; // ~25 C
@@ -82,20 +81,8 @@ void benchGeneratorTask(void*) {
 }
 
 void setupBenchLmtSimulation() {
-  // USB-only diagnostic: do not allow GPIO25 (PCNT input) to drive
-  // against GPIO23. Preserve PCNT input matrix routing; do not call
-  // gpio_config(), which would reset it.
-  // ESP32 output-enable clear register: disables GPIO25 output without
-  // changing the PCNT input signal routing in GPIO Matrix.
-  REG_WRITE(GPIO_ENABLE_W1TC_REG, (1UL << LMT_PIN));
-  Serial.printf("BENCH gpio25 output_enabled=%u\n",
-                (REG_READ(GPIO_ENABLE_REG) & (1UL << LMT_PIN)) ? 1U : 0U);
-  // With the jumper removed, the internal pulldown supplies a known
-  // LOW level instead of letting GPIO25 float. BENCH ONLY.
-  esp_err_t pullupOff = gpio_pullup_dis(GPIO_NUM_25);
-  esp_err_t pulldownOn = gpio_pulldown_en(GPIO_NUM_25);
-  Serial.printf("BENCH gpio25 pullup_dis=%d pulldown_en=%d\n",
-                (int)pullupOff, (int)pulldownOn);
+  // UART2 is mapped to GPIO16/17 in setup(). Do not touch PCNT GPIO25
+  // output enable or pull resistors here; test the normal input setup.
   benchForceOutputLow();
   Serial.println(BENCH_LOW_ONLY
       ? "BENCH MODE: LOW_ONLY; LEDC never attached; GPIO23 forced LOW"
