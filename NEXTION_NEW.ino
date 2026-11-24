@@ -111,6 +111,8 @@ ESP32_FTPClient ftp(ftp_server, ftp_user, ftp_pass, 5000, 2);
 
 StopWatch stopWatch;
 
+bool sensorsReadyThisLoop = false;
+
 void loop() {
   myNex.NextionListen();
 
@@ -121,6 +123,8 @@ void loop() {
   checkThermoPulsesCounter();
 
   checkSteamButtonStatus();   
+
+  sensorsReadyThisLoop = sensorsTimer.ready();
 
   updateVariablesFromSensorsData(); 
 
