@@ -226,9 +226,10 @@ void managePumpPidSetPoint(int flowTime)
        return; 
     }
     int declineTime = (int) passedTime - holdTime;
-    if (declineTime < settings[DECLINE_DURATION].value)
+    const int matrixSize = sizeof(declineMatrix) / sizeof(declineMatrix[0]);
+    if (declineTime >= 0 && declineTime < settings[DECLINE_DURATION].value && declineTime < matrixSize)
     {
-       pumpPid.setSetPoint(declineMatrix[declineTime]);
+        pumpPid.setSetPoint(declineMatrix[declineTime]);
     }
 }
 
