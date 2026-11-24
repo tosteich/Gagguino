@@ -89,8 +89,10 @@ void setupBenchLmtSimulation() {
   Serial.printf("BENCH gpio25 output_disable=%d\\n", (int)disabled);
   // With the jumper removed, the internal pulldown supplies a known
   // LOW level instead of letting GPIO25 float. BENCH ONLY.
-  esp_err_t pull = gpio_set_pull_mode(GPIO_NUM_25, GPIO_PULLDOWN_ONLY);
-  Serial.printf("BENCH gpio25 pulldown=%d\\n", (int)pull);
+  esp_err_t pullupOff = gpio_pullup_dis(GPIO_NUM_25);
+  esp_err_t pulldownOn = gpio_pulldown_en(GPIO_NUM_25);
+  Serial.printf("BENCH gpio25 pullup_dis=%d pulldown_en=%d\n",
+                (int)pullupOff, (int)pulldownOn);
   benchForceOutputLow();
   Serial.println(BENCH_LOW_ONLY
       ? "BENCH MODE: LOW_ONLY; LEDC never attached; GPIO23 forced LOW"
