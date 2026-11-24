@@ -18,7 +18,7 @@ The GPIO23 waveform imitates a zero-cross detector at about 100 rising edges/sec
 - While `ACTIVE`, `zc` and `gate` grow by roughly 100 each second at every power level.
 - During `SILENT`, both counters should stop increasing once any previously scheduled pulse completes; the last active second can straddle a transition.
 - `unexpected` should remain zero; `overwritten` should normally remain zero.
-- `delayUs(min/max)` is a **cumulative** software-only min/max estimate from ISR timestamps, not a hardware waveform measurement. It is not broken down by power level and should not be interpreted as a precision timing validation.
+- `delayUs(min/max)` is a software-only min/max estimate from ISR timestamps, reset at every power level. It is not a hardware waveform measurement and should not be interpreted as a precision timing validation.
 - A crash, watchdog reset, freeze, or rapidly growing `unexpected`/`overwritten` indicates a test failure. Save the full serial log.
 
 These counters verify callback execution, **not** accurate signal timing, pulse width, electrical isolation, or safe operation on mains voltage. **Do not connect a dimmer or pump based solely on this test.**
