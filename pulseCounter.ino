@@ -1,52 +1,65 @@
-#include "driver/pcnt.h"
+#include "driver/pulse_cnt.h"
 
-#define PCNT_UNIT PCNT_UNIT_0
-#define LMT_TIMER_INTERVAL 5000
+#define LMT_TIMER_INTERVAL 5000  // microseconds
 
-int16_t pulseCounter = 0;
-volatile int oldPulseCount;
+static pcnt_unit_handle_t lmtPcntUnit = nullptr;
+static pcnt_channel_handle_t lmtPcntChannel = nullptr;
+
+int pulseCounter = 0;
+int oldPulseCount = 0;
 
 void initPulseCounter() {
-  pcnt_config_t pcntConfig = {};
-  pcntConfig.pulse_gpio_num = LMT_PIN;
-  pcntConfig.neg_mode = PCNT_COUNT_INC;
-  pcntConfig.unit = PCNT_UNIT;
-  pcntConfig.channel = PCNT_CHANNEL_0;
+  pcnt_unit_config_t config = {};
+  config.low_limit = -1;
+  config.high_limit = 32767;
+  ESP_ERROR_CHECK(pcnt_new_unit(&config, &lmtPcntUnit));
 
-  pcnt_unit_config(&pcntConfig);
+  pcnt_chan_config_t channelConfig = {};
+  channelConfig.edge_gpio_num = LMT_PIN;
+  channelConfig.level_gpio_num = -1;
+  ESP_ERROR_CHECK(pcnt_new_channel(lmtPcntUnit, &channelConfig, &lmtPcntChannel));
 
-  pcnt_set_filter_value(PCNT_UNIT, 100);
-  pcnt_filter_enable(PCNT_UNIT);
+  // Preserve old PCNT_COUNT_INC on falling edges (neg_mode).
+  ESP_ERROR_CHECK(pcnt_channel_set_edge_action(
+      lmtPcntChannel, PCNT_CHANNEL_EDGE_ACTION_HOLD,
+      PCNT_CHANNEL_EDGE_ACTION_INCREASE));
+  ESP_ERROR_CHECK(pcnt_channel_set_level_action(
+      lmtPcntChannel, PCNT_CHANNEL_LEVEL_ACTION_KEEP,
+      PCNT_CHANNEL_LEVEL_ACTION_KEEP));
 
-  pcnt_counter_pause(PCNT_UNIT);
-  pcnt_counter_clear(PCNT_UNIT);
-  pcnt_counter_resume(PCNT_UNIT);
+  // Previous hardware filter: 100 APB clock cycles at 80 MHz = 1250 ns.
+  pcnt_glitch_filter_config_t filter = {};
+  filter.max_glitch_ns = 1250;
+  ESP_ERROR_CHECK(pcnt_unit_set_glitch_filter(lmtPcntUnit, &filter));
+
+  ESP_ERROR_CHECK(pcnt_unit_enable(lmtPcntUnit));
+  ESP_ERROR_CHECK(pcnt_unit_clear_count(lmtPcntUnit));
+  ESP_ERROR_CHECK(pcnt_unit_start(lmtPcntUnit));
 }
 
-hw_timer_t* timer = NULL;
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+hw_timer_t* lmtTimer = nullptr;
 
-void IRAM_ATTR onLmtTimer() {
-  portENTER_CRITICAL_ISR(&timerMux);
+void ARDUINO_ISR_ATTR onLmtTimer() {
   timeToCheckCounter = true;
-  portEXIT_CRITICAL_ISR(&timerMux);
 }
-
 
 void checkThermoPulsesCounter() {
   if (timeToCheckCounter) {
-    // Keep events that arrive during the counter read.
     timeToCheckCounter = false;
     checkCounter();
   }
 }
 
 void checkCounter() {
-  pcnt_get_counter_value(PCNT_UNIT, &pulseCounter);
+  int count = 0;
+  if (pcnt_unit_get_count(lmtPcntUnit, &count) != ESP_OK) {
+    return;
+  }
+  pulseCounter = count;
   if (pulseCounter > 0) {
     if (oldPulseCount == pulseCounter) {
       thermoLmt.setCurrentPulses(pulseCounter);
-      pcnt_counter_clear(PCNT_UNIT);
+      ESP_ERROR_CHECK(pcnt_unit_clear_count(lmtPcntUnit));
       oldPulseCount = 0;
     } else {
       oldPulseCount = pulseCounter;
@@ -55,8 +68,11 @@ void checkCounter() {
 }
 
 void initPulseCounterTimer() {
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &onLmtTimer, true);
-  timerAlarmWrite(timer, LMT_TIMER_INTERVAL, true);
-  timerAlarmEnable(timer);
+  lmtTimer = timerBegin(1000000); // 1 MHz: 1 tick = 1 us
+  if (!lmtTimer) {
+    Serial.println("ERROR: Cannot initialize LMT timer");
+    return;
+  }
+  timerAttachInterrupt(lmtTimer, &onLmtTimer);
+  timerAlarm(lmtTimer, LMT_TIMER_INTERVAL, true, 0);
 }
