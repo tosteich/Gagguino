@@ -44,7 +44,7 @@ void changeTargetTemp(byte temp) {
 void sendWsTargetTemp() {
   if (wsClients > 0) {
     char buffer[50];
-    sprintf(buffer, "{\"name\":\"targetTemp\",\"value\":\"%u\"}", settings[TARGET_TEMP].value);
+    snprintf(buffer, sizeof(buffer), "{\"name\":\"targetTemp\",\"value\":\"%u\"}", settings[TARGET_TEMP].value);
     ws.textAll(buffer);
   }
 }
@@ -57,7 +57,7 @@ void changePidKp(int newKp) {
   updateBoilerPidSettings();
   if (wsClients > 0) {
     char buffer[50];
-    sprintf(buffer, "{\"name\":\"pidKp\",\"value\":\"%f\"}", newKp / 10.f);
+    snprintf(buffer, sizeof(buffer), "{\"name\":\"pidKp\",\"value\":\"%f\"}", newKp / 10.f);
     ws.textAll(buffer);
   }
   updateSettingValueOnNex(PID_KP);
@@ -71,7 +71,7 @@ void changePidKi(int newKi) {
   updateBoilerPidSettings();
   if (wsClients > 0) {
     char buffer[50];
-    sprintf(buffer, "{\"name\":\"pidKi\",\"value\":\"%f\"}", newKi / 10.f);
+    snprintf(buffer, sizeof(buffer), "{\"name\":\"pidKi\",\"value\":\"%f\"}", newKi / 10.f);
     ws.textAll(buffer);
   }
   updateSettingValueOnNex(PID_KI);
@@ -85,7 +85,7 @@ void changePidKd(int newKd) {
   updateBoilerPidSettings();
   if (wsClients > 0) {
     char buffer[50];
-    sprintf(buffer, "{\"name\":\"pidKd\",\"value\":\"%f\"}", newKd / 10.f);
+    snprintf(buffer, sizeof(buffer), "{\"name\":\"pidKd\",\"value\":\"%f\"}", newKd / 10.f);
     ws.textAll(buffer);
   }
   updateSettingValueOnNex(PID_KD);
@@ -106,7 +106,7 @@ void handleWebSocketMessage(AsyncWebSocketClient *client, void *arg, uint8_t *da
 
 void giveInitInfoToClient(AsyncWebSocketClient *client) {
   char buffer[200];
-  sprintf(buffer, "{\"name\":\"initInfo\",\"currentTemp\":\"%f\",\"currentPress\":\"%f\",\"targetTemp\":\"%u\",\"pidKp\":\"%f\",\"pidKi\":\"%f\",\"pidKd\":\"%f\"}",
+  snprintf(buffer, sizeof(buffer), "{\"name\":\"initInfo\",\"currentTemp\":\"%f\",\"currentPress\":\"%f\",\"targetTemp\":\"%u\",\"pidKp\":\"%f\",\"pidKi\":\"%f\",\"pidKd\":\"%f\"}",
           currentTemperature, currentPressure, settings[TARGET_TEMP].value, boilerPid.getKp(), boilerPid.getKi(), boilerPid.getKd());
   ws.text(client->id(), buffer);
 }
@@ -114,7 +114,7 @@ void giveInitInfoToClient(AsyncWebSocketClient *client) {
 void updateInfoToClients() {
   if (wsClients > 0) {
     char buffer[128];
-    sprintf(buffer, "{\"name\":\"updateInfo\",\"currentTemp\":\"%f\",\"currentPress\":\"%f\",\"currentPower\":\"%u\",\"currentTime\":\"%ld\"}",
+    snprintf(buffer, sizeof(buffer), "{\"name\":\"updateInfo\",\"currentTemp\":\"%f\",\"currentPress\":\"%f\",\"currentPower\":\"%u\",\"currentTime\":\"%ld\"}",
             currentTemperature, currentPressure, heatPower, currTimeInSec);
     ws.textAll(buffer);
   }
