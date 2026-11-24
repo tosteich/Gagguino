@@ -134,7 +134,7 @@ void loop() {
 }
 
 void updateVariablesFromSensorsData() {
-  if (sensorsTimer.ready()) {
+  if (sensorsReadyThisLoop) {
     currentTemperature = thermoLmt.getTemperature();
     currentPressure = manometer.getPressure();
     heatPower = 0;
@@ -152,7 +152,7 @@ void updatePumpPower()
     {  
       if (isBrewEnabled) 
       {
-        if (sensorsTimer.ready())
+        if (sensorsReadyThisLoop)
         {
           if(isManual) 
           {
