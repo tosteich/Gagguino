@@ -3,6 +3,17 @@
 // GPIO14, GPIO18, GPIO19 and all other pins MUST remain unconnected.
 #ifdef GAGGUINO_LMT_BENCH_TEST
 #include <Arduino.h>
+// Arduino concatenates .ino files alphabetically. pulseCounter.ino is later,
+// so diagnostic globals defined there need forward declarations here.
+extern int pulseCounter;
+extern int oldPulseCount;
+extern uint32_t benchPcntReads;
+extern uint32_t benchCompleteFrames;
+extern uint32_t benchAcceptedFrames;
+extern uint32_t benchRejectedFrames;
+extern uint32_t benchPcntErrors;
+extern int benchLargestCount;
+extern int benchLastFrameCount;
 constexpr uint8_t BENCH_GENERATOR_PIN = 23;
 constexpr uint32_t BENCH_CYCLE_MS = 10000;
 constexpr uint32_t BENCH_ACTIVE_MS = 6000;
@@ -56,9 +67,6 @@ void reportBenchLmtSimulation() {
                 (unsigned long)benchRejectedFrames,
                 (unsigned long)benchPcntErrors,
                 (unsigned long)benchPcntReads);
-  if ((uint32_t)(now - lastMs) < 5) {
-    // Snapshot of most recently completed frame; useful when maxRaw stays below 800.
-    Serial.printf("BENCH lastFrame=%d\n", benchLastFrameCount);
-  }
+  Serial.printf("BENCH lastFrame=%d\n", benchLastFrameCount);
 }
 #endif
