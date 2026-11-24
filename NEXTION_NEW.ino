@@ -9,6 +9,7 @@
 #include "GaggiaPid.h"
 #include "webpage.h"
 #include "Thermo_LMT01.h"
+#include "TemperatureGuard.h"
 #include "Manometer.h"
 #include "Boiler.h"
 #include "timer.h"
@@ -97,6 +98,7 @@ GaggiaPid boilerPid(SENSORS_PERIOD);
 GaggiaPid pumpPid(PUMP_PID_PERIOD);
 Boiler boiler(MAX_BOILER_PERIOD);
 LMT01 thermoLmt;
+TemperatureGuard temperatureGuard;
 Manometer manometer;
 
 Timer pumpPidTimer(PUMP_PID_PERIOD);
@@ -130,6 +132,11 @@ void loop() {
 
   updatePumpPower();
 
+  // A stale/missing temperature must disable heat even between sensor updates.
+  if (!temperatureGuard.fresh(millis())) {
+    heatPower = 0;
+    boiler.setHeatPower(0);
+  }
   boiler.updateHeater();
 
   firstRefresh();
@@ -142,7 +149,7 @@ void updateVariablesFromSensorsData() {
     currentTemperature = thermoLmt.getTemperature();
     currentPressure = manometer.getPressure();
     heatPower = 0;
-    if (currentTemperature > 0 && currentTemperature < 145) {
+    if (temperatureGuard.fresh(millis()) && currentTemperature > 0 && currentTemperature < 145) {
       heatPower = boilerPid.getResult(currentTemperature);
     }
     boiler.setHeatPower(heatPower);
