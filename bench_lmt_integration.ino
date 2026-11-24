@@ -15,6 +15,9 @@ extern uint32_t benchPcntErrors;
 extern int benchLargestCount;
 extern int benchLastFrameCount;
 constexpr uint8_t BENCH_GENERATOR_PIN = 23;
+// Temporary isolation test: true = never attach LEDC, drive GPIO23 LOW only.
+// Restore to false after diagnosis to run the integration pulse test.
+constexpr bool BENCH_LOW_ONLY = true;
 constexpr uint32_t BENCH_CYCLE_MS = 20000; // 10s forced LOW + 6s pulses + 4s silence
 constexpr uint32_t BENCH_ACTIVE_MS = 6000;
 constexpr int BENCH_LMT_PULSES = 1200; // ~25 C
@@ -34,6 +37,13 @@ void benchForceOutputLow() {
 void benchGeneratorTask(void*) {
   const uint32_t epoch = millis();
   for (;;) {
+    if (BENCH_LOW_ONLY) {
+      benchForcedLow = true;
+      benchPulseActive = false;
+      benchForceOutputLow();
+      vTaskDelay(pdMS_TO_TICKS(20));
+      continue;
+    }
     const uint32_t phase = (uint32_t)(millis() - epoch) % BENCH_CYCLE_MS;
     const bool forcedLow = phase < 10000;
     const bool active = phase >= 10000 && phase < 10000 + BENCH_ACTIVE_MS;
@@ -66,7 +76,9 @@ void benchGeneratorTask(void*) {
 
 void setupBenchLmtSimulation() {
   benchForceOutputLow();
-  Serial.println("BENCH MODE: 10s FORCED_LOW / 6s ACTIVE / 4s SILENT; LEDC 10kHz");
+  Serial.println(BENCH_LOW_ONLY
+      ? "BENCH MODE: LOW_ONLY; LEDC never attached; GPIO23 forced LOW"
+      : "BENCH MODE: 10s FORCED_LOW / 6s ACTIVE / 4s SILENT; LEDC 10kHz");
   Serial.println("BENCH MODE: LEDC detached and GPIO23 driven LOW between bursts");
   Serial.println("GPIO14 WILL GO HIGH; ALL outputs MUST be physically unconnected");
   BaseType_t ok = xTaskCreatePinnedToCore(benchGeneratorTask, "lmtbench", 3072, nullptr, 1, nullptr, 0);
