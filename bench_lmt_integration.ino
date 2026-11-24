@@ -46,9 +46,19 @@ void reportBenchLmtSimulation() {
   const uint32_t now = millis();
   if ((uint32_t)(now - lastMs) < 1000) return;
   lastMs = now;
-  Serial.printf("BENCH generator=%s trusted=%d temp=%.2f heatPower=%d gpio14=%s\n",
+  Serial.printf("BENCH generator=%s trusted=%d temp=%.2f heatPower=%d gpio14=%s raw=%d prev=%d maxRaw=%d frames=%lu accepted=%lu rejected=%lu errors=%lu reads=%lu\n",
                 benchPulseActive ? "ACTIVE" : "SILENT",
                 temperatureGuard.fresh(now) ? 1 : 0, currentTemperature, heatPower,
-                digitalRead(HEAT_RELAY_PIN) == HIGH ? "HIGH" : "LOW");
+                digitalRead(HEAT_RELAY_PIN) == HIGH ? "HIGH" : "LOW",
+                pulseCounter, oldPulseCount, benchLargestCount,
+                (unsigned long)benchCompleteFrames,
+                (unsigned long)benchAcceptedFrames,
+                (unsigned long)benchRejectedFrames,
+                (unsigned long)benchPcntErrors,
+                (unsigned long)benchPcntReads);
+  if ((uint32_t)(now - lastMs) < 5) {
+    // Snapshot of most recently completed frame; useful when maxRaw stays below 800.
+    Serial.printf("BENCH lastFrame=%d\n", benchLastFrameCount);
+  }
 }
 #endif

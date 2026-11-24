@@ -7,6 +7,16 @@ static pcnt_channel_handle_t lmtPcntChannel = nullptr;
 
 int pulseCounter = 0;
 int oldPulseCount = 0;
+#ifdef GAGGUINO_LMT_BENCH_TEST
+// Diagnostic-only counters: no extra Serial I/O in the PCNT sampling path.
+uint32_t benchPcntReads = 0;
+uint32_t benchCompleteFrames = 0;
+uint32_t benchAcceptedFrames = 0;
+uint32_t benchRejectedFrames = 0;
+uint32_t benchPcntErrors = 0;
+int benchLargestCount = 0;
+int benchLastFrameCount = 0;
+#endif
 
 void initPulseCounter() {
   pcnt_unit_config_t config = {};
@@ -53,8 +63,15 @@ void checkThermoPulsesCounter() {
 void checkCounter() {
   int count = 0;
   if (pcnt_unit_get_count(lmtPcntUnit, &count) != ESP_OK) {
+#ifdef GAGGUINO_LMT_BENCH_TEST
+    ++benchPcntErrors;
+#endif
     return;
   }
+#ifdef GAGGUINO_LMT_BENCH_TEST
+  ++benchPcntReads;
+  if (count > benchLargestCount) benchLargestCount = count;
+#endif
   pulseCounter = count;
   if (pulseCounter > 0) {
     if (oldPulseCount == pulseCounter) {
@@ -62,7 +79,14 @@ void checkCounter() {
       // Clear PCNT before evaluating the completed frame.
       ESP_ERROR_CHECK(pcnt_unit_clear_count(lmtPcntUnit));
       oldPulseCount = 0;
-      if (temperatureGuard.accept(pulseCounter, millis())) {
+      const bool accepted = temperatureGuard.accept(pulseCounter, millis());
+#ifdef GAGGUINO_LMT_BENCH_TEST
+      ++benchCompleteFrames;
+      benchLastFrameCount = pulseCounter;
+      if (accepted) ++benchAcceptedFrames;
+      else ++benchRejectedFrames;
+#endif
+      if (accepted) {
         thermoLmt.setCurrentPulses(pulseCounter);
       }
     } else {
