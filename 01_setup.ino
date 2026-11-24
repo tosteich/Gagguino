@@ -4,7 +4,13 @@ void setup(void) {
   pinMode(LMT_PIN, INPUT);
 
   Serial.begin(9600);
+#ifdef GAGGUINO_LMT_BENCH_TEST
+  // Keep UART2 TX off GPIO25, which is dedicated to PCNT/LMT01.
+  // On classic ESP32, route UART2 RX/TX to GPIO16/GPIO17 for USB-only bench.
+  Serial2.begin(9600, SERIAL_8N1, 16, 17);
+#else
   Serial2.begin(9600);
+#endif
 
   getPreferenses();
   updateBoilerPidSettings();   
