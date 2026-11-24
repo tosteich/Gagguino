@@ -29,6 +29,7 @@ class TemperatureGuard {
     if (change > kMaxStepPulses) {
       reset();
       candidate_ = pulses;
+      lastCandidateMs_ = nowMs;
       haveCandidate_ = true;
       return false;
     }
