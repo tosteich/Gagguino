@@ -35,6 +35,8 @@ void IRAM_ATTR onLmtTimer() {
 
 void checkThermoPulsesCounter() {
   if (timeToCheckCounter) {
+    // Keep events that arrive during the counter read.
+    timeToCheckCounter = false;
     checkCounter();
   }
 }
@@ -50,7 +52,6 @@ void checkCounter() {
       oldPulseCount = pulseCounter;
     }
   }
-  timeToCheckCounter = false;
 }
 
 void initPulseCounterTimer() {
