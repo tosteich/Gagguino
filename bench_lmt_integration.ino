@@ -15,18 +15,22 @@ extern uint32_t benchPcntErrors;
 extern int benchLargestCount;
 extern int benchLastFrameCount;
 constexpr uint8_t BENCH_GENERATOR_PIN = 23;
-constexpr uint32_t BENCH_CYCLE_MS = 10000;
+constexpr uint32_t BENCH_CYCLE_MS = 20000; // 10s forced LOW + 6s pulses + 4s silence
 constexpr uint32_t BENCH_ACTIVE_MS = 6000;
 constexpr int BENCH_LMT_PULSES = 1200; // ~25 C
 constexpr uint32_t BENCH_PULSE_HZ = 10000;
 constexpr uint32_t BENCH_BURST_MS = 120;
 volatile uint32_t benchGeneratorBursts = 0;
 volatile bool benchPulseActive = false;
+volatile bool benchForcedLow = true;
 
 void benchGeneratorTask(void*) {
   const uint32_t epoch = millis();
   for (;;) {
-    const bool active = ((uint32_t)(millis() - epoch) % BENCH_CYCLE_MS) < BENCH_ACTIVE_MS;
+    const uint32_t phase = (uint32_t)(millis() - epoch) % BENCH_CYCLE_MS;
+    const bool forcedLow = phase < 10000;
+    const bool active = phase >= 10000 && phase < 10000 + BENCH_ACTIVE_MS;
+    benchForcedLow = forcedLow;
     benchPulseActive = active;
     if (active) {
       // Hardware-timed pulse edges independent of FreeRTOS scheduling.
@@ -49,7 +53,7 @@ void setupBenchLmtSimulation() {
     while (true) delay(1000);
   }
   ledcWrite(BENCH_GENERATOR_PIN, 0);
-  Serial.println("BENCH MODE: LEDC 10kHz LMT pulse simulation; fixed 100% heater request");
+  Serial.println("BENCH MODE: 10s FORCED_LOW / 6s ACTIVE / 4s SILENT; LEDC 10kHz");
   Serial.println("GPIO14 WILL GO HIGH; ALL outputs MUST be physically unconnected");
   BaseType_t ok = xTaskCreatePinnedToCore(benchGeneratorTask, "lmtbench", 3072, nullptr, 1, nullptr, 0);
   if (ok != pdPASS) {
@@ -63,8 +67,9 @@ void reportBenchLmtSimulation() {
   const uint32_t now = millis();
   if ((uint32_t)(now - lastMs) < 1000) return;
   lastMs = now;
-  Serial.printf("BENCH generator=%s trusted=%d temp=%.2f heatPower=%d gpio14=%s raw=%d prev=%d maxRaw=%d frames=%lu accepted=%lu rejected=%lu errors=%lu reads=%lu genBursts=%lu\n",
-                benchPulseActive ? "ACTIVE" : "SILENT",
+  Serial.printf("BENCH generator=%s pin23=%d pin25=%d trusted=%d temp=%.2f heatPower=%d gpio14=%s raw=%d prev=%d maxRaw=%d frames=%lu accepted=%lu rejected=%lu errors=%lu reads=%lu genBursts=%lu\n",
+                benchForcedLow ? "FORCED_LOW" : (benchPulseActive ? "ACTIVE" : "SILENT"),
+                digitalRead(BENCH_GENERATOR_PIN), digitalRead(LMT_PIN),
                 temperatureGuard.fresh(now) ? 1 : 0, currentTemperature, heatPower,
                 digitalRead(HEAT_RELAY_PIN) == HIGH ? "HIGH" : "LOW",
                 pulseCounter, oldPulseCount, benchLargestCount,
