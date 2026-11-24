@@ -32,10 +32,12 @@ void setupPump()
   pinMode(PUMP_DIMMER_M2_PIN, INPUT_PULLUP);
   pinMode(PUMP_DIMMER_M1_PIN, OUTPUT);
   
-  attachInterrupt(digitalPinToInterrupt(PUMP_DIMMER_M2_PIN), handleInterrupt, RISING);
 
   pumpTimer = timerBegin(3, 16, true);
   timerAttachInterrupt(pumpTimer, &onPumpTimer, true);
   timerAlarmWrite(pumpTimer, 50000, true);
   timerAlarmEnable(pumpTimer);
+
+  // Attach the zero-cross interrupt only after its timer is initialized.
+  attachInterrupt(digitalPinToInterrupt(PUMP_DIMMER_M2_PIN), handleInterrupt, RISING);
 }
