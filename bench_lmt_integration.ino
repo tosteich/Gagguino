@@ -82,6 +82,15 @@ void benchGeneratorTask(void*) {
 }
 
 void setupBenchLmtSimulation() {
+  // USB-only diagnostic: do not allow GPIO25 (PCNT input) to drive
+  // against GPIO23. Preserve PCNT input matrix routing; do not call
+  // gpio_config(), which would reset it.
+  esp_err_t disabled = gpio_output_disable(GPIO_NUM_25);
+  Serial.printf("BENCH gpio25 output_disable=%d\\n", (int)disabled);
+  // With the jumper removed, the internal pulldown supplies a known
+  // LOW level instead of letting GPIO25 float. BENCH ONLY.
+  esp_err_t pull = gpio_set_pull_mode(GPIO_NUM_25, GPIO_PULLDOWN_ONLY);
+  Serial.printf("BENCH gpio25 pulldown=%d\\n", (int)pull);
   benchForceOutputLow();
   Serial.println(BENCH_LOW_ONLY
       ? "BENCH MODE: LOW_ONLY; LEDC never attached; GPIO23 forced LOW"
