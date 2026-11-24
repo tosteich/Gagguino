@@ -45,6 +45,9 @@ void setup(void) {
 
   initPulseCounter();
   initPulseCounterTimer();
+#ifdef GAGGUINO_LMT_BENCH_TEST
+  setupBenchLmtSimulation();
+#endif
   initDeclineMatrix();
 
   for(uint8_t i = 0; i < sizeof(settings)/sizeof(setting); ++i) {
