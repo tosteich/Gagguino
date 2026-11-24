@@ -55,12 +55,14 @@ void updatePumpPidSettings() {
 
 void initDeclineMatrix()
 {
-  if (settings[DECLINE_DURATION].value > 0)
+  const int matrixSize = sizeof(declineMatrix) / sizeof(declineMatrix[0]);
+  const int duration = constrain(settings[DECLINE_DURATION].value, 0, matrixSize);
+  if (duration > 0)
   {
-      int step = (settings[HOLD_PRESSURE].value - settings[DECLINE_PRESSURE].value) / settings[DECLINE_DURATION].value; 
+      const int step = (settings[HOLD_PRESSURE].value - settings[DECLINE_PRESSURE].value) / duration;
 
       declineMatrix[0] = settings[HOLD_PRESSURE].value - step;
-      for(uint8_t i = 1; i < settings[DECLINE_DURATION].value; ++i) {
+      for (int i = 1; i < duration; ++i) {
           declineMatrix[i] = declineMatrix[i - 1] - step;
       }
   }
