@@ -94,11 +94,11 @@ void changePidKd(int newKd) {
 void handleWebSocketMessage(AsyncWebSocketClient *client, void *arg, uint8_t *data, size_t len) {
   AwsFrameInfo *info = (AwsFrameInfo *)arg;
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-    data[len] = 0;
-    if (strcmp((char *)data, "reboot") == 0) {
+    // WebSocket payload is length-delimited; do not write a null byte past it.
+    if (len == sizeof("reboot") - 1 && memcmp(data, "reboot", len) == 0) {
       ESP.restart();
     }
-    if (strcmp((char *)data, "initInfo") == 0) {
+    if (len == sizeof("initInfo") - 1 && memcmp(data, "initInfo", len) == 0) {
       giveInitInfoToClient(client);
     }
   }
