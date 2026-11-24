@@ -112,6 +112,9 @@ void loop() {
     previousActive = false;
     portENTER_CRITICAL(&stateMux);
     requestedPower = POWERS[stage];
+    minDelayUs = UINT32_MAX;
+    maxDelayUs = 0;
+    timingSamples = 0;
     portEXIT_CRITICAL(&stateMux);
     previousStage = stage;
     Serial.printf("STAGE power=%u%% expectedDelay=%.2f us\n",
