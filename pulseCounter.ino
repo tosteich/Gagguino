@@ -1,12 +1,16 @@
 #include "driver/pulse_cnt.h"
 
 #define LMT_TIMER_INTERVAL 5000  // microseconds
+// Require sustained silence before declaring a completed LMT01 pulse train.
+// 2 identical 5 ms samples are NOT sufficient under Wi-Fi/FreeRTOS scheduling.
+#define LMT_FRAME_IDLE_MS 40
 
 static pcnt_unit_handle_t lmtPcntUnit = nullptr;
 static pcnt_channel_handle_t lmtPcntChannel = nullptr;
 
 int pulseCounter = 0;
 int oldPulseCount = 0;
+uint32_t lastPcntChangeMs = 0;
 #ifdef GAGGUINO_LMT_BENCH_TEST
 // Diagnostic-only counters: no extra Serial I/O in the PCNT sampling path.
 uint32_t benchPcntReads = 0;
@@ -73,27 +77,38 @@ void checkCounter() {
   if (count > benchLargestCount) benchLargestCount = count;
 #endif
   pulseCounter = count;
-  if (pulseCounter > 0) {
-    if (oldPulseCount == pulseCounter) {
-      // Never treat a single plausible noisy burst as trusted temperature.
-      // Clear PCNT before evaluating the completed frame.
-      ESP_ERROR_CHECK(pcnt_unit_clear_count(lmtPcntUnit));
-      oldPulseCount = 0;
-      const bool accepted = temperatureGuard.accept(pulseCounter, millis());
-#ifdef GAGGUINO_LMT_BENCH_TEST
-      ++benchCompleteFrames;
-      benchLastFrameCount = pulseCounter;
-      if (accepted) ++benchAcceptedFrames;
-      else ++benchRejectedFrames;
-#endif
-      if (accepted) {
-        thermoLmt.setCurrentPulses(pulseCounter);
-      }
-    } else {
-      oldPulseCount = pulseCounter;
-    }
-  } else {
+  const uint32_t nowMs = millis();
+
+  if (pulseCounter <= 0) {
     oldPulseCount = 0;
+    lastPcntChangeMs = nowMs;
+    return;
+  }
+
+  if (pulseCounter != oldPulseCount) {
+    oldPulseCount = pulseCounter;
+    lastPcntChangeMs = nowMs;
+    return;
+  }
+
+  // PCNT has not advanced for an entire idle window.
+  if ((uint32_t)(nowMs - lastPcntChangeMs) < LMT_FRAME_IDLE_MS) {
+    return;
+  }
+
+  // Clear only after a sufficient quiet interval between pulse trains.
+  ESP_ERROR_CHECK(pcnt_unit_clear_count(lmtPcntUnit));
+  oldPulseCount = 0;
+  lastPcntChangeMs = nowMs;
+  const bool accepted = temperatureGuard.accept(pulseCounter, nowMs);
+#ifdef GAGGUINO_LMT_BENCH_TEST
+  ++benchCompleteFrames;
+  benchLastFrameCount = pulseCounter;
+  if (accepted) ++benchAcceptedFrames;
+  else ++benchRejectedFrames;
+#endif
+  if (accepted) {
+    thermoLmt.setCurrentPulses(pulseCounter);
   }
 }
 
