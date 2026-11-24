@@ -1,17 +1,18 @@
+#pragma once
+#include <Arduino.h>
+
 class GaggiaPid {
 private:
   float iState = 0;
   float lastPoint = 0;
-  float pTerm, dTerm;
-  float Kp, Ki, Kd;
-  float setPoint;
-  float periodSec;
-  int maxPower = 100;
+  bool hasLastPoint = false;
+  float Kp = 0, Ki = 0, Kd = 0;
+  float setPoint = 0;
+  const float periodSec;
+  const int maxPower = 100;
 
 public:
-  GaggiaPid(int period) {
-    periodSec = period / 1000.0;
-  }
+  explicit GaggiaPid(int period) : periodSec(period > 0 ? period / 1000.0f : 0.0f) {}
 
   void setupPid(float Kp, float Ki, float Kd, float targetPoint) {
     this->Kp = Kp;
@@ -20,60 +21,45 @@ public:
     this->setPoint = targetPoint;
   }
 
-  void setKp(float Kp) {
-    this->Kp = Kp;
-  }
-
-  void setKi(float Ki) {
-    this->Ki = Ki;
-  }
-
-  void setKd(float Kd) {
-    this->Kd = Kd;
-  }
-
-  float getKp() {
-    return Kp;
-  }
-
-  float getKi() {
-    return Ki;
-  }
-
-  float getKd() {
-    return Kd;
-  }
-
-  void setSetPoint(float setPoint) {
-    this->setPoint = setPoint;
-  }
-
-  float getSetPoint() {
-    return setPoint;
-  }
+  void setKp(float value) { Kp = value; }
+  void setKi(float value) { Ki = value; }
+  void setKd(float value) { Kd = value; }
+  float getKp() { return Kp; }
+  float getKi() { return Ki; }
+  float getKd() { return Kd; }
+  void setSetPoint(float value) { setPoint = value; }
+  float getSetPoint() { return setPoint; }
 
   int getResult(float input) {
-    // determine how badly we are doing
-    float error = setPoint - input;
-
-    pTerm = Kp * error;
-
-    dTerm = Kd * (input - lastPoint) / periodSec;
-
-    lastPoint = input;
-
-    iState += error * Ki * periodSec;
-
-    float result = constrain((pTerm + dTerm), 0, maxPower);
-
-    if (Ki != 0) {
-      iState = constrain(iState, (0 - result) / (Ki * periodSec), (maxPower - result) / (Ki * periodSec));
+    if (periodSec <= 0.0f || !isfinite(input)) {
+      return 0;
     }
 
-    iState = constrain(iState, 0, maxPower);
-    result = (int)constrain((result + iState), 0, maxPower);
+    const float error = setPoint - input;
+    const float pTerm = Kp * error;
 
-    //Serial.println(result);
-    return result;
+    // Preserve the historical derivative direction until hardware testing.
+    const float dTerm = hasLastPoint ? Kd * (input - lastPoint) / periodSec : 0.0f;
+    lastPoint = input;
+    hasLastPoint = true;
+
+    // iState is already the integral contribution in output units.
+    const float deltaI = error * Ki * periodSec;
+    const float proposedI = constrain(iState + deltaI, -(float)maxPower, (float)maxPower);
+    const float proposedOutput = pTerm + dTerm + proposedI;
+
+    // Clamp integration at the saturation boundary without building windup.
+    if (proposedOutput > maxPower && deltaI > 0.0f) {
+      const float limit = constrain((float)maxPower - pTerm - dTerm,
+                                    -(float)maxPower, (float)maxPower);
+      iState = max(iState, limit);
+    } else if (proposedOutput < 0.0f && deltaI < 0.0f) {
+      const float limit = constrain(-pTerm - dTerm, -(float)maxPower, (float)maxPower);
+      iState = min(iState, limit);
+    } else {
+      iState = proposedI;
+    }
+
+    return (int)constrain(pTerm + dTerm + iState, 0.0f, (float)maxPower);
   }
 };
