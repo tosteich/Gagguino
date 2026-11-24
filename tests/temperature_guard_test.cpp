@@ -26,6 +26,12 @@ int main() {
   assert(sensor.fresh(1800));
   assert(!sensor.accept(3105, 1900));             // Outside allowed range
   assert(!sensor.fresh(1900));
+  TemperatureGuard candidateTimeout;
+  assert(!candidateTimeout.accept(1200, 100));
+  assert(!candidateTimeout.accept(1200, 1200)); // Two frames too far apart
+  assert(!candidateTimeout.fresh(1200));
+  assert(candidateTimeout.accept(1200, 1300));
+  assert(candidateTimeout.fresh(1300));
   assert(!sensor.accept(800, UINT32_MAX - 20));
   assert(sensor.accept(800, 10));                 // millis wrap
   assert(sensor.fresh(20));
