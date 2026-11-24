@@ -1,45 +1,81 @@
+#pragma once
+
 #define HEAT_RELAY_PIN 14
 
 class Boiler {
 private:
-  int heatCycles;
+  int heatCycles = 0;
   boolean flag = false;
-  int maxPower = 100;
-  unsigned long activePeriod, tmr;
+  const int maxPower = 100;
+  unsigned long activePeriod = 0;
+  unsigned long tmr = 0;
   int period;
 
 public:
-  Boiler(int period) {
+  Boiler(int period) : period(period) {
     pinMode(HEAT_RELAY_PIN, OUTPUT);
-    this->period = period;
+    digitalWrite(HEAT_RELAY_PIN, LOW);
+    tmr = millis();
   }
 
   void setPeriod(int period) {
     this->period = period;
+    if (period <= 0) {
+      heatCycles = 0;
+      flag = false;
+      toggleHeatElementOnOff(false);
+    }
+    activePeriod = (unsigned long)heatCycles * (period > 0 ? period : 0) / maxPower;
   }
 
   void setHeatPower(int power) {
-    heatCycles = power;
-    if (heatCycles == 0) {
+    const int previousPower = heatCycles;
+    heatCycles = constrain(power, 0, maxPower);
+
+    if (period <= 0 || heatCycles == 0) {
+      heatCycles = 0;
+      flag = false;
       toggleHeatElementOnOff(false);
+      return;
     }
+
     if (heatCycles == maxPower) {
+      flag = true;
       toggleHeatElementOnOff(true);
+      return;
     }
-    activePeriod = heatCycles * period / maxPower;
+
+    activePeriod = (unsigned long)heatCycles * (unsigned long)period / maxPower;
+
+    // Start a fresh PWM phase when leaving a steady OFF/ON state.
+    if (previousPower == 0 || previousPower == maxPower) {
+      tmr = millis();
+    }
   }
 
   void updateHeater() {
-    if (heatCycles != 0 && heatCycles != maxPower) {
-      if (millis() - tmr >= (flag ? activePeriod : (period - activePeriod))) {
-        tmr = millis();
-        flag = !flag;
-        toggleHeatElementOnOff(flag);
-      }
+    if (period <= 0 || heatCycles == 0) {
+      flag = false;
+      toggleHeatElementOnOff(false);
+      return;
+    }
+
+    if (heatCycles == maxPower) {
+      flag = true;
+      toggleHeatElementOnOff(true);
+      return;
+    }
+
+    const unsigned long now = millis();
+    const unsigned long phaseDuration = flag ? activePeriod : ((unsigned long)period - activePeriod);
+    if ((unsigned long)(now - tmr) >= phaseDuration) {
+      tmr = now;
+      flag = !flag;
+      toggleHeatElementOnOff(flag);
     }
   }
 
   void toggleHeatElementOnOff(boolean toggle) {
-    digitalWrite(HEAT_RELAY_PIN, toggle);
+    digitalWrite(HEAT_RELAY_PIN, toggle ? HIGH : LOW);
   }
 };
