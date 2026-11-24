@@ -20,6 +20,7 @@ uint32_t benchRejectedFrames = 0;
 uint32_t benchPcntErrors = 0;
 int benchLargestCount = 0;
 int benchLastFrameCount = 0;
+int benchLastRejectedFrameCount = 0;
 #endif
 
 void initPulseCounter() {
@@ -105,7 +106,7 @@ void checkCounter() {
   ++benchCompleteFrames;
   benchLastFrameCount = pulseCounter;
   if (accepted) ++benchAcceptedFrames;
-  else ++benchRejectedFrames;
+  else { ++benchRejectedFrames; benchLastRejectedFrameCount = pulseCounter; }
 #endif
   if (accepted) {
     thermoLmt.setCurrentPulses(pulseCounter);

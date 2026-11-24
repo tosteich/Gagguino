@@ -17,6 +17,7 @@ extern uint32_t benchRejectedFrames;
 extern uint32_t benchPcntErrors;
 extern int benchLargestCount;
 extern int benchLastFrameCount;
+extern int benchLastRejectedFrameCount;
 constexpr uint8_t BENCH_GENERATOR_PIN = 23;
 // Switch to true only when isolating the GPIO line without pulse generation.
 constexpr bool BENCH_LOW_ONLY = false;
@@ -71,7 +72,7 @@ void benchGeneratorTask(void*) {
       ledcDetach(BENCH_GENERATOR_PIN);
       benchForceOutputLow();
       ++benchGeneratorBursts;
-      vTaskDelay(pdMS_TO_TICKS(200));
+      vTaskDelay(pdMS_TO_TICKS(500)); // bench-only longer separation
     } else {
       // LEDC is detached outside bursts; do not rely on duty=0.
       benchForceOutputLow();
@@ -119,11 +120,11 @@ void reportBenchLmtSimulation() {
   const uint32_t outEn = REG_READ(GPIO_ENABLE_REG);
   const uint32_t out = REG_READ(GPIO_OUT_REG);
   const uint32_t in = REG_READ(GPIO_IN_REG);
-  Serial.printf("BENCH GPIO hw_en23=%u hw_out23=%u hw_in23=%u hw_in25=%u lowWrites=%lu immediateHigh=%lu lastFrame=%d\n",
+  Serial.printf("BENCH GPIO hw_en23=%u hw_out23=%u hw_in23=%u hw_in25=%u lowWrites=%lu immediateHigh=%lu lastFrame=%d lastRejected=%d\n",
                 (outEn & pin23Mask) ? 1 : 0, (out & pin23Mask) ? 1 : 0,
                 (in & pin23Mask) ? 1 : 0, (in & pin25Mask) ? 1 : 0,
                 (unsigned long)benchLowWrites, (unsigned long)benchImmediateHigh,
-                benchLastFrameCount);
+                benchLastFrameCount, benchLastRejectedFrameCount);
   static uint32_t lastDump = 0;
   if ((uint32_t)(now - lastDump) >= 10000) {
     lastDump = now;
