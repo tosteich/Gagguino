@@ -24,6 +24,13 @@ volatile uint32_t benchGeneratorBursts = 0;
 volatile bool benchPulseActive = false;
 volatile bool benchForcedLow = true;
 
+// Force the wire to a real GPIO LOW state between hardware pulse bursts.
+// ledcWrite(pin, 0) alone was NOT observed as LOW on this ESP32.
+void benchForceOutputLow() {
+  pinMode(BENCH_GENERATOR_PIN, OUTPUT);
+  digitalWrite(BENCH_GENERATOR_PIN, LOW);
+}
+
 void benchGeneratorTask(void*) {
   const uint32_t epoch = millis();
   for (;;) {
@@ -33,32 +40,40 @@ void benchGeneratorTask(void*) {
     benchForcedLow = forcedLow;
     benchPulseActive = active;
     if (active) {
-      // Hardware-timed pulse edges independent of FreeRTOS scheduling.
-      // Burst stop is scheduled in software: total count is approximate.
-      ledcWrite(BENCH_GENERATOR_PIN, 128);
+      // Attach LEDC only during a burst, then detach and force GPIO LOW.
+      if (!ledcAttach(BENCH_GENERATOR_PIN, BENCH_PULSE_HZ, 8)) {
+        Serial.println("BENCH ERROR: LEDC attach failed");
+        benchForceOutputLow();
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        continue;
+      }
+      if (!ledcWrite(BENCH_GENERATOR_PIN, 128)) {
+        Serial.println("BENCH ERROR: LEDC write failed");
+      }
       vTaskDelay(pdMS_TO_TICKS(BENCH_BURST_MS));
       ledcWrite(BENCH_GENERATOR_PIN, 0);
+      ledcDetach(BENCH_GENERATOR_PIN);
+      benchForceOutputLow();
       ++benchGeneratorBursts;
       vTaskDelay(pdMS_TO_TICKS(200));
     } else {
-      ledcWrite(BENCH_GENERATOR_PIN, 0);
+      // LEDC is detached outside bursts; do not rely on duty=0.
+      benchForceOutputLow();
       vTaskDelay(pdMS_TO_TICKS(20));
     }
   }
 }
 
 void setupBenchLmtSimulation() {
-  if (!ledcAttach(BENCH_GENERATOR_PIN, BENCH_PULSE_HZ, 8)) {
-    Serial.println("BENCH ERROR: LEDC attach failed; stop test");
-    while (true) delay(1000);
-  }
-  ledcWrite(BENCH_GENERATOR_PIN, 0);
+  benchForceOutputLow();
   Serial.println("BENCH MODE: 10s FORCED_LOW / 6s ACTIVE / 4s SILENT; LEDC 10kHz");
+  Serial.println("BENCH MODE: LEDC detached and GPIO23 driven LOW between bursts");
   Serial.println("GPIO14 WILL GO HIGH; ALL outputs MUST be physically unconnected");
   BaseType_t ok = xTaskCreatePinnedToCore(benchGeneratorTask, "lmtbench", 3072, nullptr, 1, nullptr, 0);
   if (ok != pdPASS) {
     Serial.println("BENCH ERROR: cannot create generator task");
-    ESP.restart();
+    benchForceOutputLow();
+    while (true) delay(1000);
   }
 }
 
