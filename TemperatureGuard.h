@@ -16,11 +16,12 @@ class TemperatureGuard {
       return false;
     }
     // After a timeout, requalification starts with a fresh pair.
-    if (qualified_ && (uint32_t)(nowMs - lastMs_) > kMaxAgeMs) {
+    if (haveCandidate_ && (uint32_t)(nowMs - lastCandidateMs_) > kMaxAgeMs) {
       reset();
     }
     if (!haveCandidate_) {
       candidate_ = pulses;
+      lastCandidateMs_ = nowMs;
       haveCandidate_ = true;
       return false;
     }
@@ -32,6 +33,7 @@ class TemperatureGuard {
       return false;
     }
     candidate_ = pulses;
+    lastCandidateMs_ = nowMs;
     lastMs_ = nowMs;
     qualified_ = true;
     lastPulses_ = pulses;
@@ -47,12 +49,14 @@ class TemperatureGuard {
     haveCandidate_ = false;
     qualified_ = false;
     candidate_ = 0;
+    lastCandidateMs_ = 0;
   }
 
  private:
   int candidate_ = 0;
   int lastPulses_ = 0;
   uint32_t lastMs_ = 0;
+  uint32_t lastCandidateMs_ = 0;
   bool haveCandidate_ = false;
   bool qualified_ = false;
 };
