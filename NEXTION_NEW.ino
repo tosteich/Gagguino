@@ -287,9 +287,8 @@ void updatePumpPower()
 void updateUi() {
   if (displayTimer.ready()) {
     updateGraphsInfo();
-    // Display the actual shot duration, not elapsed wall time since its start.
-    // StopWatch freezes on release and clears after the post-shot display window.
-    currTimeInSec = stopWatch.getTimerTime() / 1000;
+    // During brewing: shot duration. After release: elapsed time since completion.
+    currTimeInSec = stopWatch.getCurrentTimeSeconds(millis());
     updateInfoToClients();
     sendInfoToDisplay();
   }
