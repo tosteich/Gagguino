@@ -59,7 +59,7 @@ float lastSentTemperature = 1;
 float currentPressure = 0;
 float lastSentPressure = 0;
 int heatPower;
-extern volatile bool pumpPulsesEnabled; // Defined in pump.ino.
+void setPumpPulsesEnabled(bool enabled); // Implemented in pump.ino.
 volatile int pumpPower = 100;    
 long resetTime = 0;
 long currTimeInSec = 0;
@@ -160,7 +160,7 @@ void loop() {
   if (pendingWebReboot.exchange(false)) {
     // WebSocket callbacks must not restart the MCU while other tasks
     // may be changing heater / pump outputs. Inhibit both before reboot.
-    pumpPulsesEnabled = false;
+    setPumpPulsesEnabled(false);
     pumpPower = 0;
     boiler.setHeatPower(0);
     ESP.restart();
@@ -240,7 +240,7 @@ void updatePumpPower()
 {
   // Preserve legacy unregulated pump behavior outside a PID-controlled shot.
   if (!stopWatch.getIsFlow() || !isBrewEnabled) {
-    pumpPulsesEnabled = true;
+    setPumpPulsesEnabled(true);
     if (pumpPressureWasValid) {
       pumpPid.resetState();
       pumpPressureWasValid = false;
@@ -262,7 +262,7 @@ void updatePumpPower()
   // A value of 0% alone does not disable the phase gate!
   const float pressure = manometer.getPressure();
   if (!manometer.isValid()) {
-    pumpPulsesEnabled = false;
+    setPumpPulsesEnabled(false);
     pumpPower = 0;
     pumpPid.resetState();
     pumpPressureWasValid = false;
@@ -272,7 +272,7 @@ void updatePumpPower()
   if (!pumpPressureWasValid) pumpPid.resetState();
   pumpPressureWasValid = true;
   pumpPower = pumpPid.getResult(pressure * 10.0f);
-  pumpPulsesEnabled = true;
+  setPumpPulsesEnabled(true);
 }
 
 void updateUi() {
