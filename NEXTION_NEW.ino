@@ -18,6 +18,7 @@
 #include "EasyNextionLibrary.h"
 #include "StopWatch.h"
 #include "PressureProfile.h"
+#include "LoopTimingStats.h"
 
 #define BUTTON_PIN 32  //button
 #define STEAM_BUTTON_PIN 26  //button
@@ -139,9 +140,12 @@ std::atomic<bool> pendingWebReboot{false};
 uint32_t previousLoopStartedMs = 0;
 bool hasPreviousLoopStart = false;
 uint32_t lastLoopGapWarningMs = 0;
+LoopTimingStats loopTimingStats;
 
 void loop() {
+  const uint32_t loopStartedUs = micros();
   const uint32_t loopStartedMs = millis();
+  loopTimingStats.begin(loopStartedUs, loopStartedMs);
   if (hasPreviousLoopStart) {
     const uint32_t gapMs = (uint32_t)(loopStartedMs - previousLoopStartedMs);
     // Report a long scheduling/blocking delay, no more than once per 10s.
@@ -202,6 +206,15 @@ void loop() {
   firstRefresh();
 
   updateUi();
+
+  LoopTimingSnapshot loopReport;
+  if (loopTimingStats.end(micros(), millis(), loopReport)) {
+    Serial.printf("LOOP_STATS max=%luus avg=%luus gap_max=%luus samples=%lu\n",
+                  (unsigned long)loopReport.maxDurationUs,
+                  (unsigned long)loopReport.avgDurationUs,
+                  (unsigned long)loopReport.maxStartGapUs,
+                  (unsigned long)loopReport.samples);
+  }
 }
 
 void updateVariablesFromSensorsData() {
