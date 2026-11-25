@@ -231,7 +231,7 @@ void loop() {
     shotBatchBaseSaved = shotArchive.testSaved();
     shotBatchBaseFailed = shotArchive.testFailed();
     shotBatchState.store(2);
-    Serial.printf("SHOT_TEST_BATCH: starting %lu shots, %lu ms each\\n",
+    Serial.printf("SHOT_TEST_BATCH: starting %lu shots, %lu ms each\n",
                   (unsigned long)shotBatchTotal.load(),
                   (unsigned long)shotBatchDurationMs);
   }
