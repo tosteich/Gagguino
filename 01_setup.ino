@@ -33,6 +33,7 @@ void setup(void) {
   updateCurrDate();
 
   initWebFiles();
+  shotArchive.begin();
   initBoilerWebCommandQueue();
   initWebSocket();
   initWebServerControllers();
