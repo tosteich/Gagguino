@@ -54,6 +54,25 @@ int main() {
   const int afterInvalidSample = invalid.getResult(90.0f);
   assert(afterInvalidSample >= 0 && afterInvalidSample <= 100);
 
+  // An invalid sample breaks the derivative time series.
+  // On recovery, the first valid sample must not be differentiated
+  // against a stale value observed before the sensor failure.
+  GaggiaPid recovering(200);
+  recovering.setupPid(0.0f, 0.0f, 9.0f, 93.0f);
+  assert(recovering.getResult(90.0f) == 0);
+  assert(recovering.getResult(NAN) == 0);
+  assert(recovering.getResult(95.0f) == 0);
+  // Subsequent valid measurement can legitimately produce a D term.
+  assert(recovering.getResult(96.0f) == 45);
+
+  GaggiaPid oppositeDerivative(200);
+  oppositeDerivative.setupPid(0.0f, 0.0f, 9.0f, 93.0f);
+  oppositeDerivative.setDerivativeOpposesMeasurement(true);
+  assert(oppositeDerivative.getResult(96.0f) == 0);
+  assert(oppositeDerivative.getResult(95.0f) == 45);
+  assert(oppositeDerivative.getResult(NAN) == 0);
+  assert(oppositeDerivative.getResult(90.0f) == 0);
+
   std::cout << "PID sequence scenarios passed\n";
   std::cout << "Boiler output after direct setpoint drop without reset: "
             << afterSetpointDropWithoutReset << "/100\n";
