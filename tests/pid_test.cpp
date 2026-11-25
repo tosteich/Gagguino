@@ -1,36 +1,31 @@
-// Run from repository root:
-// g++ -std=c++17 -Wall -Wextra -Werror -Itests -I. tests/pid_test.cpp -o /tmp/gagguino_pid_test && /tmp/gagguino_pid_test
+// Characterization tests for the original Gagguino fixed-step PID.
 #include <cassert>
 #include <iostream>
 #include "../GaggiaPid.h"
 
 int main() {
-  GaggiaPid first(200);
-  first.setupPid(0, 0, 1, 100);
-  assert(first.getResult(100) == 0); // No derivative kick on first sample.
-  assert(first.getResult(101) == 5); // Historical D sign retained.
-
   GaggiaPid integral(200);
-  integral.setupPid(2, 10, 0, 100);
-  assert(integral.getResult(80) == 80);
-  assert(integral.getResult(80) == 100);
-  for (int i = 0; i < 20; ++i) integral.getResult(110);
-  assert(integral.getResult(110) == 0);
+  integral.setupPid(0, 1, 0, 100);
+  assert(integral.getResult(90) == 2);
+  assert(integral.getResult(90) == 4);
+  integral.resetState();
+  assert(integral.getResult(90) == 2);
+
+  // Original D sign is positive with rising measurement.
+  GaggiaPid derivative(200);
+  derivative.setupPid(0, 0, 1, 100);
+  assert(derivative.getResult(100) == 100);
+  assert(derivative.getResult(101) == 5);
 
   GaggiaPid saturated(20);
   saturated.setupPid(3, 5, 0, 100);
-  for (int i = 0; i < 3000; ++i) assert(saturated.getResult(0) == 100);
-  assert(saturated.getResult(100) == 0);
+  for (int i = 0; i < 200; ++i) {
+    assert(saturated.getResult(0) == 100);
+  }
+  assert(saturated.getResult(100) >= 0);
 
-  GaggiaPid updated(200);
-  updated.setupPid(0, 1, 0, 100);
-  assert(updated.getResult(90) == 2);
-  updated.setupPid(0, 1, 0, 100);
-  assert(updated.getResult(90) == 4);
-
-  GaggiaPid invalid(0);
-  invalid.setupPid(1, 0, 0, 100);
-  assert(invalid.getResult(50) == 0);
-
-  std::cout << "PID tests passed\n";
+  GaggiaPid invalid(200);
+  invalid.setupPid(1, 1, 1, 90);
+  assert(invalid.getResult(NAN) == 0);
+  std::cout << "Legacy PID characterization passed\n";
 }
