@@ -57,19 +57,37 @@
       </section>
 
       <section id="page-settings" class="page" hidden>
-        <div class="settings-grid">
-          <article class="card"><h2>Температура</h2><p class="muted">Целевая температура бойлера</p>
-            <form id="temperatureForm" class="field-form"><label for="tempInput">Температура, °C</label><input id="tempInput" type="number" min="20" max="105" step="1" required><button class="btn primary" type="submit">Применить</button></form>
-          </article>
-          <article class="card"><h2>PID бойлера</h2><p class="muted">Менять коэффициенты только осознанно. Текущие значения поступают с ESP32.</p>
-            <form id="pidForm" class="pid-fields"><label for="kpInput">Kp</label><input id="kpInput" type="number" min="0" max="100" step="0.1" required>
-              <label for="kiInput">Ki</label><input id="kiInput" type="number" min="0" max="100" step="0.1" required>
-              <label for="kdInput">Kd</label><input id="kdInput" type="number" min="0" max="100" step="0.1" required>
-              <button class="btn primary" type="submit">Сохранить PID</button></form>
-          </article>
-          <article class="card"><h2>Система</h2><p class="muted">Перезапуск ESP32 закроет текущее WebSocket-соединение.</p><button class="btn danger" type="button" id="rebootButton">Перезагрузить ESP32</button></article>
-          <article class="card"><h2>Статус операции</h2><p id="formStatus" class="muted" role="status" aria-live="polite">Изменения ещё не отправлялись.</p></article>
-        </div>
+        <form id="allSettingsForm">
+          <div class="settings-grid">
+            <article class="card">
+              <h2>Профиль давления</h2>
+              <p class="muted">Три этапа приготовления. Значения давления — в барах.</p>
+              <div id="profileSettingsFields" class="field-form"></div>
+            </article>
+            <article class="card">
+              <h2>Температура</h2>
+              <div id="temperatureSettingsFields" class="field-form"></div>
+              <h2 style="margin-top:18px">PID бойлера</h2>
+              <div id="boilerSettingsFields" class="field-form"></div>
+            </article>
+            <article class="card">
+              <h2>PID помпы</h2>
+              <div id="pumpSettingsFields" class="field-form"></div>
+            </article>
+            <article class="card">
+              <h2>Сохранение</h2>
+              <p class="muted">Изменения применяются только вне пролива и сохраняются в памяти ESP32. Экран Nextion также обновляется.</p>
+              <button class="btn primary" type="submit" id="saveAllSettings">Сохранить все настройки</button>
+              <button class="btn secondary" type="button" id="reloadAllSettings">Обновить значения</button>
+              <p id="allSettingsStatus" class="muted" role="status" aria-live="polite">Ожидание текущих настроек ESP32…</p>
+            </article>
+            <article class="card">
+              <h2>Система</h2>
+              <p class="muted">Перезапуск ESP32 закроет текущее WebSocket-соединение.</p>
+              <button class="btn danger" type="button" id="rebootButton">Перезагрузить ESP32</button>
+            </article>
+          </div>
+        </form>
       </section>
       <footer>Gagguino • Автономный интерфейс на LittleFS • Данные через WebSocket</footer>
     </main>
