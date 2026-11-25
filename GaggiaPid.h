@@ -8,6 +8,7 @@ private:
   bool hasLastPoint = false;
   float filteredDerivative = 0.0f;
   float derivativeAlpha = 1.0f; // 1.0 preserves unfiltered behavior.
+  bool derivativeOpposesMeasurement = false; // legacy pump behavior is default
   float Kp = 0, Ki = 0, Kd = 0;
   float setPoint = 0;
   const float periodSec;
@@ -40,6 +41,15 @@ public:
     hasLastPoint = false;
   }
 
+  // Use conventional negative derivative-on-measurement for the boiler.
+  // Default false preserves the pump's historical positive derivative.
+  void setDerivativeOpposesMeasurement(bool enabled) {
+    if (derivativeOpposesMeasurement != enabled) {
+      derivativeOpposesMeasurement = enabled;
+      resetState();
+    }
+  }
+
   // An explicit reset for mode transitions; not invoked automatically.
   void resetState() {
     iState = 0.0f;
@@ -59,13 +69,14 @@ public:
     const float error = setPoint - input;
     const float pTerm = Kp * error;
 
-    // Preserve the historical derivative direction until hardware testing.
+    // Derivative is taken on measurement (avoids setpoint kick).
+    // Boiler opposes rising temperature; pump retains legacy direction.
     const float measurementRate =
         hasLastPoint ? (input - lastPoint) / periodSec : 0.0f;
     filteredDerivative = hasLastPoint
         ? derivativeAlpha * measurementRate + (1.0f - derivativeAlpha) * filteredDerivative
         : 0.0f;
-    const float dTerm = Kd * filteredDerivative;
+    const float dTerm = (derivativeOpposesMeasurement ? -Kd : Kd) * filteredDerivative;
     lastPoint = input;
     hasLastPoint = true;
 

@@ -11,6 +11,6 @@ The test applies artificial input sequences (80, 85, 90, 94, 95, 96, 100 °C, ta
 
 Expected: `PID_DIAGNOSTIC_DONE ... fail=0`. Failure means the algorithm diverges from the current regression expectations. PASS does not prove stable real-boiler regulation, absence of overshoot or electrical/thermal safety.
 
-**Known limitation:** the current production derivative term adds a positive contribution on rising temperature, a nonstandard sign for derivative-on-measurement. This sketch characterizes it, without changing the production behavior before physical and control-system validation.
+**Derivative distinction:** the boiler uses negative derivative-on-measurement, opposing rising temperature; the pump retains its historical positive sign. The diagnostic checks both. This is a behavior change for boiler setups with nonzero Kd; do not reuse existing Kd tuning on a real machine without further validation.
 
 The standalone test does not invoke production `loop()` or `TemperatureGuard`; it simulates the application's PID `resetState()` calls. It does not simulate a closed-loop boiler thermal plant.

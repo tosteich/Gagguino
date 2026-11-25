@@ -92,9 +92,32 @@ void runDerivativeObservation() {
   const int falling = pid.getResult(90.0f);
   Serial.printf("PID DERIVATIVE first=%d rising_1C=%d falling_1C=%d\n",
     initial, rising, falling);
-  // Characterize legacy behavior, not a safety pass for PID tuning:
-  // positive dTerm on a temperature rise remains a known design concern.
-  expect("legacy_derivative_observed", initial == 0 && rising == 5 && falling == 0);
+  // The pump must keep legacy derivative semantics.
+  expect("pump_legacy_derivative", initial == 0 && rising == 5 && falling == 0);
+
+  // The boiler must oppose a rising measurement and support heat on cooling.
+  GaggiaPid boiler(SENSOR_PERIOD_MS);
+  boiler.setDerivativeOpposesMeasurement(true);
+  boiler.setupPid(0.0f, 0.0f, 1.0f, 95.0f);
+  const int boilerFirst = boiler.getResult(90.0f);
+  const int boilerRising = boiler.getResult(91.0f);
+  const int boilerFalling = boiler.getResult(90.0f);
+  Serial.printf("BOILER DERIVATIVE first=%d rising_1C=%d falling_1C=%d\\n",
+    boilerFirst, boilerRising, boilerFalling);
+  expect("boiler_opposes_rising_temp",
+    boilerFirst == 0 && boilerRising == 0 && boilerFalling == 5);
+
+  // Compare signs with a nonzero proportional contribution, away from
+  // output clipping, to ensure the difference is not hidden at zero.
+  GaggiaPid comparison(SENSOR_PERIOD_MS);
+  comparison.setDerivativeOpposesMeasurement(true);
+  comparison.setupPid(2.0f, 0.0f, 1.0f, 95.0f);
+  comparison.getResult(90.0f);
+  const int risingWithP = comparison.getResult(91.0f);
+  const int fallingWithP = comparison.getResult(90.0f);
+  Serial.printf("BOILER P+D rising=%d falling=%d\\n",
+    risingWithP, fallingWithP);
+  expect("boiler_damping_with_P", risingWithP == 3 && fallingWithP == 15);
 }
 
 void setup() {
