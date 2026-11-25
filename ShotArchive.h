@@ -11,6 +11,7 @@
 #include <freertos/task.h>
 #include <math.h>
 #include <atomic>
+#include <time.h>
 
 class ShotArchive {
  public:
@@ -24,7 +25,7 @@ class ShotArchive {
     uint16_t version;
     uint16_t count;
     uint32_t durationMs;
-    uint32_t startedUnix; // zero if local system time is unavailable
+    uint32_t startedUnix; // UTC seconds; zero when NTP clock is unavailable
   };
   struct __attribute__((packed)) Sample {
     uint16_t tick;         // 200ms steps from shot start
@@ -77,7 +78,7 @@ class ShotArchive {
         if (slots_[i].state==0) {
           capturing_=i;
           slots_[i].state=1;
-          slots_[i].header={MAGIC,1,0,0,0};
+          slots_[i].header={MAGIC,1,0,0,validUtcNow()};
           break;
         }
       }
@@ -128,7 +129,7 @@ class ShotArchive {
     Buffer &buf = slots_[slot];
     buf.state = 1;
     buf.synthetic = false;
-    buf.header = {MAGIC, 1, 0, durationMs, 0};
+    buf.header = {MAGIC, 1, 0, durationMs, validUtcNow()};
     const uint16_t count = (uint16_t)min(durationMs / SAMPLE_INTERVAL_MS,
                                           (uint32_t)MAX_SAMPLES);
     for (uint16_t i = 0; i < count; ++i) {
@@ -225,6 +226,14 @@ class ShotArchive {
   }
 
  private:
+  // time() is maintained by ESP32 SNTP independently of the local display
+  // clock. Refuse uninitialized time rather than persist a 1970 timestamp.
+  static uint32_t validUtcNow() {
+    const time_t now = time(nullptr);
+    return now >= (time_t)1577836800 && (uint64_t)now <= UINT32_MAX
+        ? (uint32_t)now : 0;
+  }
+
   struct Buffer {
     volatile uint8_t state=0; // 0=free; 1=capturing; 2=queued/writing
 #ifdef GAGGUINO_SHOT_ARCHIVE_TEST
