@@ -411,6 +411,7 @@ void trigger0() {
   updateBoilerPidSettings();
   updatePumpPidSettings();
   initDeclineMatrix();
+  publishWebSettings();
 }
 
 void trigger1() {
