@@ -17,6 +17,7 @@
 #include "timer.h"
 #include "EasyNextionLibrary.h"
 #include "StopWatch.h"
+#include "PressureProfile.h"
 
 #define BUTTON_PIN 32  //button
 #define STEAM_BUTTON_PIN 26  //button
@@ -249,25 +250,15 @@ void firstRefresh() {
 
 void managePumpPidSetPoint(uint32_t flowTime)
 {
-    const uint32_t passedSeconds = flowTime / 1000u;
-    if (passedSeconds < (uint32_t)max(settings[PREINFUSE_DURATION].value, 0))
-    {
-       pumpPid.setSetPoint(settings[PREINFUSE_PRESSURE].value);
-       return; 
-    } 
-    const uint64_t holdTime = (uint64_t)max(settings[PREINFUSE_DURATION].value, 0)
-                            + (uint64_t)max(settings[HOLD_DURATION].value, 0);
-    if (passedSeconds < holdTime)
-    {
-       pumpPid.setSetPoint(settings[HOLD_PRESSURE].value);
-       return; 
-    }
-    const uint64_t declineTime = passedSeconds >= holdTime ? (uint64_t)passedSeconds - holdTime : 0;
-    const int matrixSize = sizeof(declineMatrix) / sizeof(declineMatrix[0]);
-    if (declineTime < (uint64_t)max(settings[DECLINE_DURATION].value, 0) && declineTime < (uint64_t)matrixSize)
-    {
-        pumpPid.setSetPoint(declineMatrix[declineTime]);
-    }
+  const PressureProfile profile{
+    settings[PREINFUSE_DURATION].value,
+    settings[PREINFUSE_PRESSURE].value,
+    settings[HOLD_DURATION].value,
+    settings[HOLD_PRESSURE].value,
+    settings[DECLINE_DURATION].value,
+    settings[DECLINE_PRESSURE].value
+  };
+  pumpPid.setSetPoint(pressureProfileSetpoint(profile, flowTime));
 }
 
 void trigger0() {

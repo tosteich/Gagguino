@@ -3,6 +3,10 @@
 // Values for PID gains are stored in tenths (1000 = 100.0).
 constexpr int MAX_STORED_PID_GAIN = 1000;
 constexpr int MAX_TARGET_TEMP_C = 144;
+// Pressure settings use tenths of a bar (120 = 12 bar).
+constexpr int MAX_STORED_PRESSURE = 120;
+constexpr int MAX_PROFILE_STAGE_SECONDS = 600;
+constexpr int MAX_DECLINE_SECONDS = 60;
 
 int sanitizeBoilerSetting(int index, int value) {
   switch (index) {
@@ -12,7 +16,19 @@ int sanitizeBoilerSetting(int index, int value) {
     case PID_KP:
     case PID_KI:
     case PID_KD:
+    case PUMP_KP:
+    case PUMP_KI:
+    case PUMP_KD:
       return constrain(value, 0, MAX_STORED_PID_GAIN);
+    case PREINFUSE_PRESSURE:
+    case HOLD_PRESSURE:
+    case DECLINE_PRESSURE:
+      return constrain(value, 0, MAX_STORED_PRESSURE);
+    case PREINFUSE_DURATION:
+    case HOLD_DURATION:
+      return constrain(value, 0, MAX_PROFILE_STAGE_SECONDS);
+    case DECLINE_DURATION:
+      return constrain(value, 0, MAX_DECLINE_SECONDS);
     default:
       return value;
   }
