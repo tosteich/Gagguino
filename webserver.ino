@@ -228,6 +228,51 @@ void initWebServerControllers() {
     }
   });
 
+  // Archive reads are bounded to 60 shots x 600 packed samples.
+  // The writer owns flash writes; web handlers briefly take its mutex for reads.
+  server.on("/api/shots", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String json;
+    if (!shotArchive.list(json)) {
+      request->send(503, "text/plain", "Shot archive unavailable or busy");
+      return;
+    }
+    request->send(200, "application/json", json);
+  });
+  server.on("/api/shot", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!request->hasParam("id")) {
+      request->send(400, "text/plain", "Missing shot id");
+      return;
+    }
+    const String value=request->getParam("id")->value();
+    if(value.isEmpty() || value.length()>8) {
+      request->send(400, "text/plain", "Invalid shot id");
+      return;
+    }
+    for(size_t i=0;i<value.length();++i){
+      if(value[i]<'0'||value[i]>'9'){
+        request->send(400, "text/plain", "Invalid shot id");
+        return;
+      }
+    }
+    const uint32_t id=(uint32_t)value.toInt();
+    uint8_t *bytes=nullptr;
+    size_t length=0;
+    if(!shotArchive.read(id,bytes,length)){
+      request->send(404, "text/plain", "Shot missing or archive busy");
+      return;
+    }
+    AsyncResponseStream *response=request->beginResponseStream("application/octet-stream");
+    response->addHeader("Cache-Control","no-store");
+    const size_t written=response->write(bytes,length);
+    free(bytes);
+    if(written!=length){
+      delete response;
+      request->send(503, "text/plain", "Unable to buffer shot");
+      return;
+    }
+    request->send(response);
+  });
+
   server.on("/targetTemp", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("temp")) {
       String str = request->getParam("temp")->value();
