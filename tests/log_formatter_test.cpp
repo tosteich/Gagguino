@@ -31,7 +31,9 @@ int main() {
   assert(!formatLogRecords(records, 30, guarded.buffer, sizeof(guarded.buffer)));
   assert(guarded.buffer[0] == '\0');
   for (char c : guarded.guard) assert(c == 0x5a);
-  assert(formatLogRecords(records, 30, buffer, sizeof(buffer)));
+  // Reject the oversized batch rather than risk a partial/corrupt FTP write.
+  assert(!formatLogRecords(records, 30, buffer, sizeof(buffer)));
+  assert(buffer[0] == '\0');
 
   char tiny[1] = {42};
   assert(!formatLogRecords(records, 1, tiny, sizeof(tiny)));
