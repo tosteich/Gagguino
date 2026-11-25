@@ -107,7 +107,7 @@ public:
 
   uint32_t getCurrentTimeSeconds(uint32_t nowMs) const {
     if (isFlow) return timerTime / 1000;
-    if (!hasCompletedShot) return 0;
+    if (!hasCompletedShot) return nowMs / 1000; // Uptime before the first brew.
     return (uint32_t)(nowMs - resetTime) / 1000;
   }
 };
