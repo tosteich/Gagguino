@@ -11,8 +11,6 @@ void setup(void) {
   // GPIO25, which is reserved for the LMT01 PCNT input.
   Serial2.begin(9600, SERIAL_8N1, 16, 17);
 
-  // Boiler D damps rising temperature; pump retains its historical sign.
-  boilerPid.setDerivativeOpposesMeasurement(true);
   getPreferenses();
   updateBoilerPidSettings();   
   updatePumpPidSettings();   
