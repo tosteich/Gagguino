@@ -1,3 +1,4 @@
+#include <LittleFS.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
@@ -196,9 +197,35 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
   }
 }
 
+// Filesystem is optional: keep the original PROGMEM page as a fallback.
+static bool darkWebFilesReady = false;
+
+void initWebFiles() {
+  if (!LittleFS.begin(false)) { // Never auto-format: preserve user files.
+    Serial.println("LittleFS not mounted; serving legacy embedded page");
+    return;
+  }
+  darkWebFilesReady = LittleFS.exists("/index.html") &&
+                      LittleFS.exists("/css/style.css") &&
+                      LittleFS.exists("/js/app.js");
+  if (!darkWebFilesReady) {
+    Serial.println("Dark UI assets missing; serving legacy embedded page");
+  } else {
+    Serial.println("Dark UI available from LittleFS");
+  }
+}
+
 void initWebServerControllers() {
+  if (darkWebFilesReady) {
+    server.serveStatic("/css/", LittleFS, "/css/");
+    server.serveStatic("/js/", LittleFS, "/js/");
+  }
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send_P(200, "text/html", index_html, processor);
+    if (darkWebFilesReady) {
+      request->send(LittleFS, "/index.html", "text/html");
+    } else {
+      request->send_P(200, "text/html", index_html, processor);
+    }
   });
 
   server.on("/targetTemp", HTTP_GET, [](AsyncWebServerRequest *request) {
