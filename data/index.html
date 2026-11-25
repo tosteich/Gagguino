@@ -48,7 +48,12 @@
         <article class="card chart-card"><div class="section-head"><div><h2>Графики</h2><p id="chartModeLabel">Живые показания · последние 60 измерений</p></div><div class="chart-actions"><button type="button" class="btn secondary" id="freezeChart">Зафиксировать</button><button type="button" class="btn secondary" id="clearChart">Очистить</button></div></div>
           <div class="chart-wrap tall"><canvas id="detailChart" role="img" aria-label="Расширенный график температуры и давления"></canvas><div class="chart-tooltip" id="detailTooltip" hidden></div></div><p class="hint">«Зафиксировать» сохраняет снимок графика в памяти браузера для просмотра. Сбор живых данных продолжается.</p>
         </article>
-        <article class="card"><h2>Архив</h2><p class="muted">Архив записей доступен отдельно, если настроен в локальной сети. Встроенная история на ESP32 пока не реализована.</p></article>
+        <article class="card archive-card">
+          <div class="section-head"><div><h2>Архив приготовлений</h2><p>До 60 проливов длительностью от 15 секунд, записанных ESP32 в LittleFS</p></div><div class="chart-actions"><button class="btn secondary" id="refreshShots" type="button">Обновить</button><button class="btn secondary" id="returnLive" type="button" hidden>Вернуться к LIVE</button><button class="btn secondary" id="downloadShot" type="button" hidden>Скачать CSV</button></div></div>
+          <p class="hint" id="archiveStatus" role="status">Загружаем список записей…</p>
+          <div id="shotList" class="shot-list"></div>
+          <p class="hint">DEMO-записи существуют только в браузере и в архив ESP32 не сохраняются. Повторная загрузка LittleFS может стереть архив.</p>
+        </article>
       </section>
 
       <section id="page-settings" class="page" hidden>
