@@ -128,8 +128,22 @@ bool sensorsReadyThisLoop = false;
 // Prevent stale PID state being reused when qualified LMT01 data returns.
 bool boilerPidSensorWasFresh = false;
 bool pumpPressureWasValid = false;
+// AsyncTCP consumers use published snapshots, not loop-owned mutable state.
+// Keep -50C as the original unqualified LMT01 web display value.
+std::atomic<float> publishedCurrentTemperature{-50.0f};
+std::atomic<float> publishedCurrentPressure{0.0f};
+std::atomic<bool> pendingWebReboot{false};
 
 void loop() {
+  if (pendingWebReboot.exchange(false)) {
+    // WebSocket callbacks must not restart the MCU while other tasks
+    // may be changing heater / pump outputs. Inhibit both before reboot.
+    pumpPulsesEnabled = false;
+    pumpPower = 0;
+    boiler.setHeatPower(0);
+    ESP.restart();
+    return;
+  }
   // Apply queued HTTP updates on the same task as PID calculations.
   applyPendingWebSettings();
   myNex.NextionListen();
@@ -176,6 +190,8 @@ void updateVariablesFromSensorsData() {
   if (sensorsReadyThisLoop) {
     currentTemperature = thermoLmt.getTemperature();
     currentPressure = manometer.getPressure();
+    publishedCurrentTemperature.store(currentTemperature);
+    publishedCurrentPressure.store(currentPressure);
     heatPower = 0;
     if (temperatureGuard.fresh(millis()) && currentTemperature > 0 && currentTemperature < 145) {
 #ifdef GAGGUINO_LMT_BENCH_TEST

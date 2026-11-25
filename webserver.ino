@@ -74,14 +74,12 @@ String processor(const String &var) {
 }
 
 String getTemperature() {
-  return String(thermoLmt.getTemperature());
+  return String(publishedCurrentTemperature.load());
 }
 
 String getPressure() {
-  if (currentPressure < 0) {
-    return String(0.0);
-  }
-  return String(currentPressure);
+  const float pressure = publishedCurrentPressure.load();
+  return String(pressure < 0 ? 0.0f : pressure);
 }
 
 void changeTargetTemp(byte temp) {
@@ -149,7 +147,7 @@ void handleWebSocketMessage(AsyncWebSocketClient *client, void *arg, uint8_t *da
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
     // WebSocket payload is length-delimited; do not write a null byte past it.
     if (len == sizeof("reboot") - 1 && memcmp(data, "reboot", len) == 0) {
-      ESP.restart();
+      pendingWebReboot.store(true);
     }
     if (len == sizeof("initInfo") - 1 && memcmp(data, "initInfo", len) == 0) {
       giveInitInfoToClient(client);
@@ -160,7 +158,7 @@ void handleWebSocketMessage(AsyncWebSocketClient *client, void *arg, uint8_t *da
 void giveInitInfoToClient(AsyncWebSocketClient *client) {
   char buffer[200];
   snprintf(buffer, sizeof(buffer), "{\"name\":\"initInfo\",\"currentTemp\":\"%f\",\"currentPress\":\"%f\",\"targetTemp\":\"%u\",\"pidKp\":\"%f\",\"pidKi\":\"%f\",\"pidKd\":\"%f\"}",
-          currentTemperature, currentPressure, publishedTargetTemp.load(), publishedBoilerKp.load() / 10.0f, publishedBoilerKi.load() / 10.0f, publishedBoilerKd.load() / 10.0f);
+          publishedCurrentTemperature.load(), publishedCurrentPressure.load(), publishedTargetTemp.load(), publishedBoilerKp.load() / 10.0f, publishedBoilerKi.load() / 10.0f, publishedBoilerKd.load() / 10.0f);
   ws.text(client->id(), buffer);
 }
 
