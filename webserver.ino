@@ -1,3 +1,16 @@
+// Returns a nonnegative fixed-point PID gain (tenths), or false.
+// Reject garbage/trailing characters, NaN, infinity and out-of-range values.
+bool parseBoilerPidGain(const String& input, int& storedGain) {
+  if (input.isEmpty()) return false;
+  const char* begin = input.c_str();
+  char* end = nullptr;
+  const double gain = strtod(begin, &end);
+  if (end == begin || *end != '\0' || !isfinite(gain) ||
+      gain < 0.0 || gain > (double)MAX_STORED_PID_GAIN / 10.0) return false;
+  storedGain = (int)(gain * 10.0 + 0.5);
+  return true;
+}
+
 String processor(const String &var) {
   if (var == "TEMPERATUREC") {
     return getTemperature();
@@ -172,7 +185,11 @@ void initWebServerControllers() {
   server.on("/changePidKp", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("Kp")) {
       String str = request->getParam("Kp")->value();
-      int newKp = str.toFloat() * 10;
+      int newKp = 0;
+      if (!parseBoilerPidGain(str, newKp)) {
+        request->send(400, "text/plain", "Invalid PID gain");
+        return;
+      }
       changePidKp(newKp);
     }
     request->send_P(200, "text/plain", "OK");
@@ -180,7 +197,11 @@ void initWebServerControllers() {
   server.on("/changePidKi", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("Ki")) {
       String str = request->getParam("Ki")->value();
-      int newKi = str.toFloat() * 10;
+      int newKi = 0;
+      if (!parseBoilerPidGain(str, newKi)) {
+        request->send(400, "text/plain", "Invalid PID gain");
+        return;
+      }
       changePidKi(newKi);
     }
     request->send_P(200, "text/plain", "OK");
@@ -188,7 +209,11 @@ void initWebServerControllers() {
   server.on("/changePidKd", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("Kd")) {
       String str = request->getParam("Kd")->value();
-      int newKd = str.toFloat() * 10;
+      int newKd = 0;
+      if (!parseBoilerPidGain(str, newKd)) {
+        request->send(400, "text/plain", "Invalid PID gain");
+        return;
+      }
       changePidKd(newKd);
     }
     request->send_P(200, "text/plain", "OK");

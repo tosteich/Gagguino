@@ -10,12 +10,23 @@ private:
   unsigned long activePeriod = 0;
   unsigned long tmr = 0;
   int period;
+  bool initialized = false;
 
 public:
-  Boiler(int period) : period(period) {
+  explicit Boiler(int period) : period(period) {}
+
+  // Call at the very beginning of setup(), before network or sensor work.
+  // GPIO state before setup() is hardware-dependent; external thermal
+  // protection is still required.
+  void begin() {
+    digitalWrite(HEAT_RELAY_PIN, LOW); // preload output latch
     pinMode(HEAT_RELAY_PIN, OUTPUT);
     digitalWrite(HEAT_RELAY_PIN, LOW);
+    heatCycles = 0;
+    flag = false;
+    activePeriod = 0;
     tmr = millis();
+    initialized = true;
   }
 
   void setPeriod(int period) {
@@ -76,6 +87,7 @@ public:
   }
 
   void toggleHeatElementOnOff(boolean toggle) {
+    if (!initialized) return;
     digitalWrite(HEAT_RELAY_PIN, toggle ? HIGH : LOW);
   }
 };

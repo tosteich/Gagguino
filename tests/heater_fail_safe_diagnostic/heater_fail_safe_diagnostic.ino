@@ -100,9 +100,8 @@ void waitAndService(uint32_t ms) {
 
 void setup() {
   Serial.begin(115200);
-  // Boiler() constructor also initializes GPIO14 LOW, but set explicitly here.
-  pinMode(HEAT_RELAY_PIN, OUTPUT);
-  digitalWrite(HEAT_RELAY_PIN, LOW);
+  // Boiler constructor never touches hardware; begin sets GPIO14 LOW.
+  boiler.begin();
   pinMode(GENERATOR_PIN, OUTPUT);
   digitalWrite(GENERATOR_PIN, LOW);
   pinMode(SENSOR_PIN, INPUT);

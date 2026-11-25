@@ -1,3 +1,23 @@
+// Persisted and Nextion settings are untrusted inputs. The PID gain limit
+// prevents negative gains and extreme values while preserving common tuning.
+// Values for PID gains are stored in tenths (1000 = 100.0).
+constexpr int MAX_STORED_PID_GAIN = 1000;
+constexpr int MAX_TARGET_TEMP_C = 144;
+
+int sanitizeBoilerSetting(int index, int value) {
+  switch (index) {
+    case TARGET_TEMP:
+    case STEAM_TEMP:
+      return constrain(value, 0, MAX_TARGET_TEMP_C);
+    case PID_KP:
+    case PID_KI:
+    case PID_KD:
+      return constrain(value, 0, MAX_STORED_PID_GAIN);
+    default:
+      return value;
+  }
+}
+
 void updateSettingValueOnNex(int valueIndex)
 {
    myNex.writeNum(settings[valueIndex].key, settings[valueIndex].value);
@@ -12,7 +32,7 @@ void loadSettingsFromNex()
 
  void readSettingFromNex(int index) 
 {
-   settings[index].value = myNex.readNumber(settings[index].key);  
+   settings[index].value = sanitizeBoilerSetting(index, myNex.readNumber(settings[index].key));  
 }
 
 void updatePreferenses()
@@ -33,7 +53,7 @@ void getPreferenses() {
   preferences.begin("gaggia-prefs", false);
 
   for(uint8_t i = 0; i < sizeof(settings)/sizeof(setting); ++i) {
-      settings[i].value = preferences.getInt(settings[i].key, 0);
+      settings[i].value = sanitizeBoilerSetting(i, preferences.getInt(settings[i].key, 0));
   }
   
   preferences.end();

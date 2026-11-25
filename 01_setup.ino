@@ -1,4 +1,6 @@
 void setup(void) {
+  // Establish heater GPIO14 LOW before initializing any other subsystem.
+  boiler.begin();
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(STEAM_BUTTON_PIN, INPUT_PULLUP);
   pinMode(LMT_PIN, INPUT);
