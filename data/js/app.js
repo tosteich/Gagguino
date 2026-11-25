@@ -251,6 +251,17 @@
     }
     return readings;
   }
+  // UTC timestamps are rendered in Kyiv time, including DST transitions.
+  const shotDateFormatter=new Intl.DateTimeFormat("ru-RU",{
+    timeZone:"Europe/Kyiv",year:"numeric",month:"2-digit",day:"2-digit",
+    hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"
+  });
+  function shotStartedAt(shot) {
+    const seconds=Number(shot.startedUnix);
+    return Number.isSafeInteger(seconds) && seconds>=1577836800
+      ? shotDateFormatter.format(new Date(seconds*1000))
+      : "Дата неизвестна";
+  }
   async function refreshArchive() {
     $("archiveStatus").textContent="Загружаем историю с ESP32…";
     try {
@@ -269,7 +280,7 @@
         const label=document.createElement("strong");
         label.textContent="Пролив #"+shot.id;
         const details=document.createElement("small");
-        details.textContent=(shot.durationMs/1000).toFixed(1)+" с · "+shot.samples+" измерений";
+        details.textContent=shotStartedAt(shot)+" · "+(shot.durationMs/1000).toFixed(1)+" с · "+shot.samples+" измерений";
         description.append(label,details);
         const button=document.createElement("button");
         button.type="button";button.className="btn secondary";button.textContent="Просмотреть";
