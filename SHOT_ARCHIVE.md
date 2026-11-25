@@ -77,3 +77,20 @@ uint8 heatPercent, uint8 pumpPercent`.
 - Disable the flag before connecting the firmware to installed coffee-machine
   hardware. The endpoint is absent entirely when disabled.
 - No real hardware compilation or bench run has been performed yet.
+
+## Sequential batch stress test (bench flag must remain enabled)
+- Call `GET /api/test-shots?count=65&seconds=20`. A 202 response
+  means the batch was queued. The main loop generates a 100-sample synthetic
+  record, waits for the archive writer's success counter, then generates
+  the next record. It does not block the PID/main loop for 65 shots.
+- Poll `GET /api/test-shots/status` for `state` (queued/running/completed/failed),
+  `total`, `queued`, `saved`, and `failed`. Do not issue another batch
+  while running (HTTP 409). If a write fails, the batch stops.
+- After `state=completed` and `saved=65`, refresh `/api/shots`:
+  expect exactly 60 records, with the oldest five removed *relative to the
+  archive contents before the test*. Existing records also participate in
+  pruning, so save any important records first.
+- No filesystem asset upload required: only firmware files changed.
+- The synthetic archive test endpoints are accessible on the local network
+  while the bench flag is enabled, and they modify LittleFS. Disable the flag
+  before connecting to machine hardware.
