@@ -10,6 +10,10 @@
   let demo = false, demoTimer = null, demoSecond = 0;
   const realSamples = [];
   let frozenSamples = null;
+  let selectedArchive = null;
+  let archiveShots = [];
+  let selectedArchiveId = null;
+  let archiveBusy = false;
   const hoverPosition = {liveChart:null,detailChart:null};
   const plotBounds = {};
   let realTargetTemp = null;
@@ -56,7 +60,9 @@
     $("targetTemperature").textContent=demo?"93 (DEMO)":realTargetTemp===null?"—":String(realTargetTemp);
     chartSamples.length=0;
     frozenSamples=null;
+    selectedArchive=null; selectedArchiveId=null;
     updateFreezeButton();
+    updateArchiveButtons();
     if(demo){
       demoSecond=0;demoTick();
       demoTimer=setInterval(demoTick,1000);
@@ -120,13 +126,18 @@
     ws.onclose=()=>{setStatus(false);clearTimeout(reconnectHandle);reconnectHandle=setTimeout(connect,2500);};
   }
   function visibleSamples(id) {
+    if(id==="detailChart" && selectedArchive!==null)return selectedArchive;
     return id==="detailChart" && frozenSamples!==null?frozenSamples:chartSamples;
   }
   function updateFreezeButton() {
     const frozen=frozenSamples!==null;
     $("freezeChart").textContent=frozen?"Вернуться к LIVE":"Зафиксировать";
+    $("freezeChart").disabled=selectedArchive!==null;
     $("freezeChart").classList.toggle("freeze-active",frozen);
-    $("chartModeLabel").textContent=frozen?"Зафиксированный снимок · данные продолжают поступать":"Живые показания · последние 60 измерений";
+    $("chartModeLabel").textContent=selectedArchive!==null
+      ?"Архивный пролив #"+selectedArchiveId
+      :frozen?"Зафиксированный снимок · данные продолжают поступать"
+        :"Живые показания · последние 60 измерений";
   }
   function draw(canvas) {
     const ctx=canvas.getContext("2d");if(!ctx)return;
@@ -219,12 +230,91 @@
       });
     }
   }
+  function updateArchiveButtons() {
+    $("returnLive").hidden=selectedArchive===null;
+    $("downloadShot").hidden=selectedArchive===null;
+    updateFreezeButton();
+  }
+  function parseArchive(buffer) {
+    const data=new DataView(buffer);
+    if(data.byteLength<16 || data.getUint32(0,true)!==0x31485347 ||
+       data.getUint16(4,true)!==1)throw Error("Неподдерживаемый формат архива");
+    const count=data.getUint16(6,true);
+    if(count>600 || data.byteLength!==16+count*8)throw Error("Повреждённый архив");
+    const readings=[];
+    for(let i=0;i<count;i++){
+      const offset=16+i*8;
+      readings.push({t:data.getUint16(offset,true)*0.2,
+        temp:data.getInt16(offset+2,true)/10,
+        press:data.getUint16(offset+4,true)/100,
+        heat:data.getUint8(offset+6),pump:data.getUint8(offset+7)});
+    }
+    return readings;
+  }
+  async function refreshArchive() {
+    $("archiveStatus").textContent="Загружаем историю с ESP32…";
+    try {
+      const result=await fetch("/api/shots",{cache:"no-store"});
+      if(!result.ok)throw Error("HTTP "+result.status);
+      const list=await result.json();
+      if(!Array.isArray(list))throw Error("Неверный ответ сервера");
+      archiveShots=list.sort((a,b)=>b.id-a.id);
+      $("archiveStatus").textContent="В архиве "+archiveShots.length+" из 60 приготовлений.";
+      const container=$("shotList");container.replaceChildren();
+      for(const shot of archiveShots){
+        if(!Number.isSafeInteger(shot.id)||shot.id<=0)continue;
+        const row=document.createElement("div");row.className="shot-row";
+        if(shot.id===selectedArchiveId)row.classList.add("selected");
+        const description=document.createElement("div");
+        const label=document.createElement("strong");
+        label.textContent="Пролив #"+shot.id;
+        const details=document.createElement("small");
+        details.textContent=(shot.durationMs/1000).toFixed(1)+" с · "+shot.samples+" измерений";
+        description.append(label,details);
+        const button=document.createElement("button");
+        button.type="button";button.className="btn secondary";button.textContent="Просмотреть";
+        button.addEventListener("click",()=>viewArchive(shot.id));
+        row.append(description,button);container.appendChild(row);
+      }
+    } catch(err){
+      $("archiveStatus").textContent="Не удалось загрузить архив: "+err.message;
+    }
+  }
+  async function viewArchive(id) {
+    if(archiveBusy)return;
+    archiveBusy=true;
+    $("archiveStatus").textContent="Загружаем пролив #"+id+"…";
+    try {
+      const response=await fetch("/api/shot?id="+encodeURIComponent(id),{cache:"no-store"});
+      if(!response.ok)throw Error("HTTP "+response.status);
+      const readings=parseArchive(await response.arrayBuffer());
+      selectedArchive=readings;selectedArchiveId=id;
+      hoverPosition.detailChart=null;
+      updateArchiveButtons();drawCharts();
+      $("archiveStatus").textContent="Пролив #"+id+": "+readings.length+" измерений. Наведи курсор на график.";
+      await refreshArchive();
+    }catch(err){$("archiveStatus").textContent="Ошибка просмотра: "+err.message;}
+    finally{archiveBusy=false;}
+  }
+  function downloadArchiveCsv() {
+    if(selectedArchive===null)return;
+    const lines=["time_s,temperature_c,pressure_bar,heater_percent,pump_percent"];
+    for(const s of selectedArchive){
+      lines.push([s.t.toFixed(1),s.temp.toFixed(1),s.press.toFixed(2),s.heat,s.pump].join(","));
+    }
+    const url=URL.createObjectURL(new Blob([lines.join("\\n")+"\\n"],{type:"text/csv;charset=utf-8"}));
+    const anchor=document.createElement("a");
+    anchor.href=url;anchor.download="gagguino-shot-"+selectedArchiveId+".csv";
+    document.body.appendChild(anchor);anchor.click();anchor.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
   function navigate(){
     const page=(location.hash||"#dashboard").slice(1);
     const active=labels[page]?page:"dashboard";
     for(const key of Object.keys(labels)) $("page-"+key).hidden=key!==active;
     document.querySelectorAll(".nav-link").forEach(a=>{a.classList.toggle("active",a.dataset.page===active);});
     $("pageTitle").textContent=labels[active];drawCharts();
+    if(active==="graphs")refreshArchive();
   }
   function message(text,error=false){$("formStatus").textContent=text;$("formStatus").style.color=error?"#ef8189":"#a0adbf";}
   async function send(path,params) {
@@ -268,6 +358,7 @@
   });
   $("demoToggle").addEventListener("click",()=>setDemo(!demo));
   $("freezeChart").addEventListener("click",()=>{
+    if(selectedArchive!==null)return;
     frozenSamples=frozenSamples===null?chartSamples.map(p=>({...p})):null;
     updateFreezeButton();hoverPosition.detailChart=null;drawCharts();
   });
@@ -276,7 +367,14 @@
     if(!demo)realSamples.length=0;
     frozenSamples=null;hoverPosition.detailChart=null;updateFreezeButton();drawCharts();
   });
+  $("refreshShots").addEventListener("click",refreshArchive);
+  $("returnLive").addEventListener("click",()=>{
+    selectedArchive=null;selectedArchiveId=null;
+    hoverPosition.detailChart=null;updateArchiveButtons();drawCharts();
+    refreshArchive();
+  });
+  $("downloadShot").addEventListener("click",downloadArchiveCsv);
   window.addEventListener("hashchange",navigate);
   window.addEventListener("resize",drawCharts);
-  initChartPointers();updateFreezeButton();navigate();publish();connect();
+  initChartPointers();updateArchiveButtons();navigate();publish();connect();
 })();
