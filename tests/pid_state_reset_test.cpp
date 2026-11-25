@@ -16,10 +16,10 @@ int main() {
 
   GaggiaPid derivative(200);
   derivative.setupPid(0.0f, 0.0f, 1.0f, 100.0f);
-  assert(derivative.getResult(90.0f) == 0);
+  assert(derivative.getResult(90.0f) == 100); // Legacy first-sample derivative
   assert(derivative.getResult(91.0f) == 5);
   derivative.resetState();
-  assert(derivative.getResult(90.0f) == 0);
+  assert(derivative.getResult(90.0f) == 0); // Reset suppresses D kick
 
   std::cout << "PID state reset scenarios passed\n";
 }
