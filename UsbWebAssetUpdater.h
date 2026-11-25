@@ -13,7 +13,24 @@
 
 class UsbWebAssetUpdater {
  public:
+  // Repair an interrupted rename during startup before static handlers exist.
+  static void recover() {
+    const char* live[] = {"/index.html", "/css/style.css", "/js/app.js"};
+    const char* backups[] = {"/index.html.bak", "/css/style.css.bak", "/js/app.js.bak"};
+    for (int i = 0; i < 3; ++i) {
+      if (!LittleFS.exists(live[i]) && LittleFS.exists(backups[i])) {
+        if (LittleFS.rename(backups[i], live[i]))
+          Serial.printf("WEBUPDATE restored %s from backup\\n", live[i]);
+      }
+    }
+    // A leftover uncommitted candidate cannot be served.
+    LittleFS.remove("/webupdate.tmp");
+  }
+
   void poll(bool physicalFlow, SemaphoreHandle_t filesystemMutex) {
+    if (active_ && physicalFlow) {
+      abortUpload("physical flow active");
+    }
     if (active_ && (uint32_t)(millis() - lastInputMs_) > 30000UL) {
       abortUpload("timeout");
     }
