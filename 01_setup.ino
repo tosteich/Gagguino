@@ -28,6 +28,9 @@ void setup(void) {
   Serial.println();
   Serial.println(WiFi.localIP());
 
+  // Start asynchronous SNTP sync; never wait for networking in setup().
+  // Shot metadata stores UTC, while the browser handles Europe/Kyiv DST.
+  configTime(0, 0, "pool.ntp.org", "time.google.com");
   timeClient.begin();
   timeClient.setTimeOffset(7200);
   updateCurrDate();
