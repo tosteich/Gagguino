@@ -1,3 +1,43 @@
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+
+// AsyncWebServer callbacks execute outside the Arduino loop task.
+// Only enqueue validated changes here; the loop owns PID, settings,
+// Preferences and Nextion writes.
+struct BoilerWebCommand {
+  uint8_t index;
+  int value;
+};
+static QueueHandle_t boilerWebCommandQueue = nullptr;
+
+void initBoilerWebCommandQueue() {
+  boilerWebCommandQueue = xQueueCreate(8, sizeof(BoilerWebCommand));
+  if (!boilerWebCommandQueue) {
+    Serial.println("ERROR: unable to create boiler web command queue");
+  }
+}
+
+bool enqueueBoilerWebCommand(uint8_t index, int value) {
+  if (!boilerWebCommandQueue) return false;
+  const BoilerWebCommand command{index, value};
+  return xQueueSend(boilerWebCommandQueue, &command, 0) == pdTRUE;
+}
+
+void applyPendingWebSettings() {
+  if (!boilerWebCommandQueue) return;
+  BoilerWebCommand command;
+  // Bound loop work even under a flood of requests.
+  for (int i = 0; i < 8 && xQueueReceive(boilerWebCommandQueue, &command, 0) == pdTRUE; ++i) {
+    switch (command.index) {
+      case TARGET_TEMP: changeTargetTemp((byte)command.value); break;
+      case PID_KP: changePidKp(command.value); break;
+      case PID_KI: changePidKi(command.value); break;
+      case PID_KD: changePidKd(command.value); break;
+      default: break;
+    }
+  }
+}
+
 // Returns a nonnegative fixed-point PID gain (tenths), or false.
 // Reject garbage/trailing characters, NaN, infinity and out-of-range values.
 bool parseBoilerPidGain(const String& input, int& storedGain) {
@@ -19,16 +59,16 @@ String processor(const String &var) {
     return getPressure();
   }
   if (var == "TARGETTEMP") {
-    return String(settings[TARGET_TEMP].value);
+    return String(publishedTargetTemp.load());
   }
   if (var == "PID_KP") {
-    return String(boilerPid.getKp());
+    return String(publishedBoilerKp.load() / 10.0f);
   }
   if (var == "PID_KI") {
-    return String(boilerPid.getKi());
+    return String(publishedBoilerKi.load() / 10.0f);
   }
   if (var == "PID_KD") {
-    return String(boilerPid.getKd());
+    return String(publishedBoilerKd.load() / 10.0f);
   }
   return String();
 }
@@ -120,7 +160,7 @@ void handleWebSocketMessage(AsyncWebSocketClient *client, void *arg, uint8_t *da
 void giveInitInfoToClient(AsyncWebSocketClient *client) {
   char buffer[200];
   snprintf(buffer, sizeof(buffer), "{\"name\":\"initInfo\",\"currentTemp\":\"%f\",\"currentPress\":\"%f\",\"targetTemp\":\"%u\",\"pidKp\":\"%f\",\"pidKi\":\"%f\",\"pidKd\":\"%f\"}",
-          currentTemperature, currentPressure, settings[TARGET_TEMP].value, boilerPid.getKp(), boilerPid.getKi(), boilerPid.getKd());
+          currentTemperature, currentPressure, publishedTargetTemp.load(), publishedBoilerKp.load() / 10.0f, publishedBoilerKi.load() / 10.0f, publishedBoilerKd.load() / 10.0f);
   ws.text(client->id(), buffer);
 }
 
@@ -177,8 +217,13 @@ void initWebServerControllers() {
         request->send(400, "text/plain", "Invalid target temperature");
         return;
       }
-      changeTargetTemp((byte)newTemp);
-      Serial.printf("New target temp - %ld\n", newTemp);
+      if (!enqueueBoilerWebCommand(TARGET_TEMP, (int)newTemp)) {
+        request->send(503, "text/plain", "Settings queue unavailable");
+        return;
+      }
+      Serial.printf("Queued target temp - %ld\n", newTemp);
+      request->send(202, "text/plain", "Queued");
+      return;
     }
     request->send_P(200, "text/plain", "OK");
   });
@@ -190,7 +235,12 @@ void initWebServerControllers() {
         request->send(400, "text/plain", "Invalid PID gain");
         return;
       }
-      changePidKp(newKp);
+      if (!enqueueBoilerWebCommand(PID_KP, newKp)) {
+        request->send(503, "text/plain", "Settings queue unavailable");
+        return;
+      }
+      request->send(202, "text/plain", "Queued");
+      return;
     }
     request->send_P(200, "text/plain", "OK");
   });
@@ -202,7 +252,12 @@ void initWebServerControllers() {
         request->send(400, "text/plain", "Invalid PID gain");
         return;
       }
-      changePidKi(newKi);
+      if (!enqueueBoilerWebCommand(PID_KI, newKi)) {
+        request->send(503, "text/plain", "Settings queue unavailable");
+        return;
+      }
+      request->send(202, "text/plain", "Queued");
+      return;
     }
     request->send_P(200, "text/plain", "OK");
   });
@@ -214,7 +269,12 @@ void initWebServerControllers() {
         request->send(400, "text/plain", "Invalid PID gain");
         return;
       }
-      changePidKd(newKd);
+      if (!enqueueBoilerWebCommand(PID_KD, newKd)) {
+        request->send(503, "text/plain", "Settings queue unavailable");
+        return;
+      }
+      request->send(202, "text/plain", "Queued");
+      return;
     }
     request->send_P(200, "text/plain", "OK");
   });

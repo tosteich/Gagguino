@@ -60,6 +60,10 @@ void getPreferenses() {
 }
 
 void updateBoilerPidSettings() {
+  publishedTargetTemp.store(settings[TARGET_TEMP].value);
+  publishedBoilerKp.store(settings[PID_KP].value);
+  publishedBoilerKi.store(settings[PID_KI].value);
+  publishedBoilerKd.store(settings[PID_KD].value);
   // New tuning/target must not inherit integral or derivative history.
   boilerPid.resetState();
   boilerPid.setupPid(settings[PID_KP].value / 10.f,  

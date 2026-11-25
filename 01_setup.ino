@@ -32,6 +32,7 @@ void setup(void) {
   timeClient.setTimeOffset(7200);
   updateCurrDate();
 
+  initBoilerWebCommandQueue();
   initWebSocket();
   initWebServerControllers();
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");

@@ -1,4 +1,5 @@
 
+#include <atomic>
 #include <WiFi.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
@@ -114,11 +115,19 @@ ESP32_FTPClient ftp(ftp_server, ftp_user, ftp_pass, 5000, 2);
 
 StopWatch stopWatch;
 
+// Web callbacks read published settings without accessing the live PID.
+std::atomic<int> publishedTargetTemp{0};
+std::atomic<int> publishedBoilerKp{0};
+std::atomic<int> publishedBoilerKi{0};
+std::atomic<int> publishedBoilerKd{0};
+
 bool sensorsReadyThisLoop = false;
 // Prevent stale PID state being reused when qualified LMT01 data returns.
 bool boilerPidSensorWasFresh = false;
 
 void loop() {
+  // Apply queued HTTP updates on the same task as PID calculations.
+  applyPendingWebSettings();
   myNex.NextionListen();
 
   ws.cleanupClients();
