@@ -20,6 +20,7 @@
 #include "PressureProfile.h"
 #include "ManualPressure.h"
 #include "LoopTimingStats.h"
+#include "ShotArchive.h"
 
 #define BUTTON_PIN 32  //button
 #define STEAM_BUTTON_PIN 26  //button
@@ -119,6 +120,7 @@ AsyncWebSocket ws("/ws");
 ESP32_FTPClient ftp(ftp_server, ftp_user, ftp_pass, 5000, 2);
 
 StopWatch stopWatch;
+ShotArchive shotArchive;
 
 // Web callbacks read published settings without accessing the live PID.
 std::atomic<int> publishedTargetTemp{0};
@@ -195,6 +197,11 @@ void loop() {
   sensorsReadyThisLoop = sensorsTimer.ready();
 
   updateVariablesFromSensorsData(); 
+  // Capture one bounded sample at each 200 ms sensor tick; no flash I/O here.
+  if (sensorsReadyThisLoop) {
+    shotArchive.sample(stopWatch.getIsFlow(), stopWatch.getTimerTime(),
+                       currentTemperature, currentPressure, heatPower, (int)pumpPower);
+  }
 
   updatePumpPower();
 
