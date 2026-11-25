@@ -21,6 +21,7 @@
 #include "ManualPressure.h"
 #include "LoopTimingStats.h"
 #include "ShotArchive.h"
+#include "UsbWebAssetUpdater.h"
 
 #define BUTTON_PIN 32  //button
 #define STEAM_BUTTON_PIN 26  //button
@@ -121,6 +122,9 @@ ESP32_FTPClient ftp(ftp_server, ftp_user, ftp_pass, 5000, 2);
 
 StopWatch stopWatch;
 ShotArchive shotArchive;
+#ifdef GAGGUINO_USB_WEB_UPDATE
+UsbWebAssetUpdater usbWebAssetUpdater;
+#endif
 #ifdef GAGGUINO_SHOT_ARCHIVE_TEST
 // HTTP handlers only enqueue a request. The main loop builds test samples.
 std::atomic<uint32_t> pendingShotTestMs{0};
@@ -192,6 +196,10 @@ void loop() {
     ESP.restart();
     return;
   }
+#ifdef GAGGUINO_USB_WEB_UPDATE
+  // USB bench-only maintenance: disabled in production builds.
+  usbWebAssetUpdater.poll(stopWatch.getIsFlow(), shotArchive.filesystemMutex());
+#endif
   // Apply queued HTTP updates on the same task as PID calculations.
   applyPendingWebSettings();
   myNex.NextionListen();
