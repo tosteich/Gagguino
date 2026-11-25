@@ -58,6 +58,7 @@ float lastSentTemperature = 1;
 float currentPressure = 0;
 float lastSentPressure = 0;
 int heatPower;
+extern volatile bool pumpPulsesEnabled; // Defined in pump.ino.
 volatile int pumpPower = 100;    
 long resetTime = 0;
 long currTimeInSec = 0;
