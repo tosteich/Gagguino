@@ -18,6 +18,7 @@
 #include "EasyNextionLibrary.h"
 #include "StopWatch.h"
 #include "PressureProfile.h"
+#include "ManualPressure.h"
 #include "LoopTimingStats.h"
 
 #define BUTTON_PIN 32  //button
@@ -352,5 +353,5 @@ void trigger13() {
 }
 
 void updateManualPressure() {
-   manualPressure = myNex.readNumber("manualPressure") * 10 / 2;  
+   manualPressure = manualPressureTenthsFromNextion(myNex.readNumber("manualPressure"));  
 }
