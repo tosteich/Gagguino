@@ -25,7 +25,7 @@ int main() {
   assert(sample.samples == 2);
   assert(sample.maxDurationUs == 100);
   assert(sample.avgDurationUs == 100);
-  assert(sample.maxStartGapUs == 1000);
+  assert(sample.maxStartGapUs == 2000); // previous start at 9000 us
   // micros() rollover: elapsed calculations must remain correct.
   LoopTimingStats rollover(10);
   rollover.begin(UINT32_MAX - 10, UINT32_MAX - 1);
