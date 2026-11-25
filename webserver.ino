@@ -175,18 +175,20 @@ void updateInfoToClients() {
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
   switch (type) {
-    case WS_EVT_CONNECT:
+    case WS_EVT_CONNECT: {
       Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
       const unsigned int connected = wsClients.fetch_add(1) + 1;
       Serial.printf("Total connected clients - %u\n", connected);
       break;
-    case WS_EVT_DISCONNECT:
+    }
+    case WS_EVT_DISCONNECT: {
       Serial.printf("WebSocket client #%u disconnected\n", client->id());
-      // Saturate at zero rather than wrap to 255 on an unexpected event.
+      // Saturate at zero rather than underflow on an unexpected event.
       unsigned int previous = wsClients.load();
       while (previous > 0 && !wsClients.compare_exchange_weak(previous, previous - 1)) {}
       Serial.printf("Total connected clients - %u\n", previous > 0 ? previous - 1 : 0);
       break;
+    }
     case WS_EVT_DATA:
       handleWebSocketMessage(client, arg, data, len);
       break;
