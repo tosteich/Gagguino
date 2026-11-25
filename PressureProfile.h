@@ -26,5 +26,5 @@ inline int pressureProfileSetpoint(const PressureProfile& p, uint32_t elapsedMs)
   // Match the existing decline matrix: first point makes 1/duration
   // of the total change, final point reaches the target exactly.
   const int64_t delta = (int64_t)p.declinePressure - p.holdPressure;
-  return p.holdPressure + (int)(delta * (declineSecond + 1) / decline);
+  return p.holdPressure + (int)(delta * (int64_t)(declineSecond + 1) / (int64_t)decline);
 }
