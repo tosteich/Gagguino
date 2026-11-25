@@ -35,8 +35,8 @@
         </div>
         <article class="card chart-card">
           <div class="section-head"><div><h2>Живые данные</h2><p>Температура и давление в реальном времени</p></div><div class="legend"><span><i class="legend-temp"></i>°C</span><span><i class="legend-pressure"></i>бар</span></div></div>
-          <div class="chart-wrap"><canvas id="liveChart" role="img" aria-label="График температуры и давления"></canvas></div>
-          <p class="hint">Последние 60 измерений. График начинается заново при обновлении страницы.</p>
+          <div class="chart-wrap"><canvas id="liveChart" role="img" aria-label="График температуры и давления"></canvas><div class="chart-tooltip" id="liveTooltip" hidden></div></div>
+          <p class="hint">До 60 последних измерений. Наведи курсор или коснись линии, чтобы увидеть точные значения. Время по горизонтали — с начала записи в браузере.</p>
         </article>
         <div class="info-grid">
           <article class="card"><h2>Подключение</h2><p id="connectionText" class="muted">Ожидание данных WebSocket…</p></article>
@@ -45,8 +45,8 @@
       </section>
 
       <section id="page-graphs" class="page" hidden>
-        <article class="card chart-card"><div class="section-head"><div><h2>Графики</h2><p>Последние 60 показаний</p></div><button type="button" class="btn secondary" id="clearChart">Очистить график</button></div>
-          <div class="chart-wrap tall"><canvas id="detailChart" role="img" aria-label="Расширенный график температуры и давления"></canvas></div>
+        <article class="card chart-card"><div class="section-head"><div><h2>Графики</h2><p id="chartModeLabel">Живые показания · последние 60 измерений</p></div><div class="chart-actions"><button type="button" class="btn secondary" id="freezeChart">Зафиксировать</button><button type="button" class="btn secondary" id="clearChart">Очистить</button></div></div>
+          <div class="chart-wrap tall"><canvas id="detailChart" role="img" aria-label="Расширенный график температуры и давления"></canvas><div class="chart-tooltip" id="detailTooltip" hidden></div></div><p class="hint">«Зафиксировать» сохраняет снимок графика в памяти браузера для просмотра. Сбор живых данных продолжается.</p>
         </article>
         <article class="card"><h2>Архив</h2><p class="muted">Архив записей доступен отдельно, если настроен в локальной сети. Встроенная история на ESP32 пока не реализована.</p></article>
       </section>
