@@ -89,6 +89,9 @@ void updateBoilerPidSettings() {
 }
 
 void updatePumpPidSettings() {
+  // A tuning change is a new controller configuration, not a profile step.
+  pumpPid.resetState();
+  pumpPressureWasValid = false;
   pumpPid.setupPid(settings[PUMP_KP].value / 10.f,  
                    settings[PUMP_KI].value / 10.f,  
                    settings[PUMP_KD].value / 10.f,

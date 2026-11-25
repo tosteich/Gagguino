@@ -345,9 +345,17 @@ void trigger12() {
    Serial.print("PRESSED, isBrewEnabled-");
    Serial.println(isBrewEnabled);
    isBrewEnabled = !isBrewEnabled;
+   // Do not carry pressure PID integral/derivative state across
+   // controlled/unregulated mode changes.
+   pumpPid.resetState();
+   pumpPressureWasValid = false;
 }
 
 void trigger13() {
+   if (!isManual) {
+     pumpPid.resetState();
+     pumpPressureWasValid = false;
+   }
    isManual = true;
    updateManualPressure();
 }

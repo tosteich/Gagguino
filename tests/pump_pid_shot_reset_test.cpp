@@ -23,5 +23,24 @@ int main() {
   derivative.resetState();
   derivative.setSetPoint(90);
   assert(derivative.getResult(90) == 0);
-  std::cout << "Pump PID between-shots reset checks passed\n";
+  // Reconfiguration should not inherit the previous shot's integral.
+  GaggiaPid retuned(20);
+  retuned.setupPid(0.0f, 10.0f, 0.0f, 80.0f);
+  for (int i = 0; i < 50; ++i) retuned.getResult(70.0f);
+  retuned.resetState();
+  retuned.setupPid(0.0f, 1.0f, 0.0f, 80.0f);
+  assert(retuned.getResult(70.0f) == 0);
+  // Changing a pressure setpoint within the same shot preserves integral.
+  assert(retuned.getResult(70.0f) == 0);
+  retuned.setSetPoint(60.0f);
+  assert(retuned.getResult(70.0f) == 0);
+  // Entering manual mode resets derivative history for the new control mode.
+  GaggiaPid switched(20);
+  switched.setupPid(0.0f, 0.0f, 1.0f, 90.0f);
+  switched.getResult(90.0f);
+  assert(switched.getResult(91.0f) == 50);
+  switched.resetState();
+  switched.setSetPoint(80.0f);
+  assert(switched.getResult(91.0f) == 0);
+  std::cout << "Pump PID between-shots and mode-change reset checks passed\n";
 }
