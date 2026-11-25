@@ -237,7 +237,7 @@ void updateVariablesFromSensorsData() {
 #ifdef GAGGUINO_LMT_BENCH_TEST
       heatPower = 100;  // USB-only bench: GPIO14 MUST be unconnected.
 #else
-      heatPower = boilerPid.getResultAt(currentTemperature, millis());
+      heatPower = boilerPid.getResult(currentTemperature);
 #endif
     }
     boiler.setHeatPower(heatPower);
@@ -280,7 +280,7 @@ void updatePumpPower()
 
   if (!pumpPressureWasValid) pumpPid.resetState();
   pumpPressureWasValid = true;
-  pumpPower = pumpPid.getResultAt(pressure * 10.0f, millis());
+  pumpPower = pumpPid.getResult(pressure * 10.0f);
   updatePumpGateEnabled(true);
 }
 
