@@ -351,11 +351,11 @@ void initWebServerControllers() {
     const uint8_t state = shotBatchState.load();
     const char* stateText = state == 1 ? "queued" : state == 2 ? "running" :
                             state == 3 ? "completed" : state == 4 ? "failed" : "idle";
-    const String json = String("{\\"state\\":\\"") + stateText +
-                        "\\",\\"total\\":" + String(shotBatchTotal.load()) +
-                        ",\\"queued\\":" + String(shotBatchQueued.load()) +
-                        ",\\"saved\\":" + String(shotBatchSaved.load()) +
-                        ",\\"failed\\":" + String(shotBatchFailed.load()) + "}";
+    const String json = String("{\"state\":\"") + stateText +
+                        "\",\"total\":" + String(shotBatchTotal.load()) +
+                        ",\"queued\":" + String(shotBatchQueued.load()) +
+                        ",\"saved\":" + String(shotBatchSaved.load()) +
+                        ",\"failed\":" + String(shotBatchFailed.load()) + "}";
     request->send(200, "application/json", json);
   });
 #endif
