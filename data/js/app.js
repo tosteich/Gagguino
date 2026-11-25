@@ -379,7 +379,7 @@
     const data=await response.json();
     for(const [key,,,min,max,step] of settingSpecs){
       const value=Number(data[key]);
-      if(!Number.isFinite(value)||value<min||value>max)throw Error("Некорректное значение "+key);
+      if(!Number.isFinite(value))throw Error("Некорректное значение "+key);
       const input=$("setting-"+key);
       if(overwrite)input.value=String(value);
       input.disabled=demo;
