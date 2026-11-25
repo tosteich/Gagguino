@@ -172,6 +172,11 @@ class ShotArchive {
   uint32_t testFailed() const { return testFailed_.load(); }
 #endif
 
+#ifdef GAGGUINO_USB_WEB_UPDATE
+  // Maintenance only: serialize file updates against archive reads/writes.
+  SemaphoreHandle_t filesystemMutex() const { return mutex_; }
+#endif
+
   bool available() const { return ready_; }
 
   // Web handlers only: skip if the background writer is using LittleFS.
