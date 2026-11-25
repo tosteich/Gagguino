@@ -32,6 +32,7 @@ void setup(void) {
   timeClient.setTimeOffset(7200);
   updateCurrDate();
 
+  initWebFiles();
   initBoilerWebCommandQueue();
   initWebSocket();
   initWebServerControllers();
