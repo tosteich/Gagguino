@@ -102,7 +102,7 @@ void runDerivativeObservation() {
   const int boilerFirst = boiler.getResult(90.0f);
   const int boilerRising = boiler.getResult(91.0f);
   const int boilerFalling = boiler.getResult(90.0f);
-  Serial.printf("BOILER DERIVATIVE first=%d rising_1C=%d falling_1C=%d\\n",
+  Serial.printf("BOILER DERIVATIVE first=%d rising_1C=%d falling_1C=%d\n",
     boilerFirst, boilerRising, boilerFalling);
   expect("boiler_opposes_rising_temp",
     boilerFirst == 0 && boilerRising == 0 && boilerFalling == 5);
@@ -115,7 +115,7 @@ void runDerivativeObservation() {
   comparison.getResult(90.0f);
   const int risingWithP = comparison.getResult(91.0f);
   const int fallingWithP = comparison.getResult(90.0f);
-  Serial.printf("BOILER P+D rising=%d falling=%d\\n",
+  Serial.printf("BOILER P+D rising=%d falling=%d\n",
     risingWithP, fallingWithP);
   expect("boiler_damping_with_P", risingWithP == 3 && fallingWithP == 15);
 }
