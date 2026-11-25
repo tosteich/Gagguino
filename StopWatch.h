@@ -1,7 +1,10 @@
+#pragma once
+#include <stdint.h>
 class StopWatch {
 private:
-  long startTime = 0;
-  long resetTime = 0;
+  uint32_t startTime = 0;
+  bool started = false;
+  uint32_t resetTime = 0;
   byte timerSecs = 0;
   byte timerMils = 0;
   byte wsClients = 0;
@@ -9,7 +12,7 @@ private:
   int flowTickCounter = 0;
   boolean isFlow = false;
   boolean flowJustPressed = false;
-  int timerTime;
+  uint32_t timerTime = 0;
 
   void sendWsMessage(AsyncWebSocket &ws) {
     if (wsClients > 0) {
@@ -27,12 +30,13 @@ public:
   void run(AsyncWebSocket &ws, EasyNex &myNex) {
     if (isFlow) {
       flowTickCounter++;
-      long currTime = millis();
-      if (startTime == 0) {
+      const uint32_t currTime = millis();
+      if (!started) {
         startTime = currTime;
+        started = true;
         memoryTimer = 0;
       }
-      timerTime = currTime - startTime;
+      timerTime = (uint32_t)(currTime - startTime);
       sendTimerTimeToNex(myNex);
       if (flowTickCounter % 2 == 0) {
         sendWsMessage(ws);
@@ -48,6 +52,7 @@ public:
       if (memoryTimer == 0) {
         flowTickCounter = 0;
         startTime = 0;
+        started = false;
       }
       if (memoryTimer < 40 && timerTime > 0) {
         if (flowJustPressed) {
@@ -79,7 +84,7 @@ public:
     return isFlow;
   }
 
-  int getTimerTime() {
+  uint32_t getTimerTime() {
     return timerTime;
   }
   void setFlowJustPressed(boolean flowJustPressed) {
@@ -90,7 +95,7 @@ public:
     return flowJustPressed;
   }
 
-  long getResetTime() {
+  uint32_t getResetTime() {
     return resetTime;
   }
 };

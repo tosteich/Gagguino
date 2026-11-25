@@ -247,23 +247,24 @@ void firstRefresh() {
   }
 }
 
-void managePumpPidSetPoint(int flowTime)
+void managePumpPidSetPoint(uint32_t flowTime)
 {
-    float passedTime = flowTime / 1000.0;
-    if (passedTime < settings[PREINFUSE_DURATION].value)
+    const uint32_t passedSeconds = flowTime / 1000u;
+    if (passedSeconds < (uint32_t)max(settings[PREINFUSE_DURATION].value, 0))
     {
        pumpPid.setSetPoint(settings[PREINFUSE_PRESSURE].value);
        return; 
     } 
-    int holdTime = settings[PREINFUSE_DURATION].value + settings[HOLD_DURATION].value;
-    if (passedTime < holdTime)
+    const uint64_t holdTime = (uint64_t)max(settings[PREINFUSE_DURATION].value, 0)
+                            + (uint64_t)max(settings[HOLD_DURATION].value, 0);
+    if (passedSeconds < holdTime)
     {
        pumpPid.setSetPoint(settings[HOLD_PRESSURE].value);
        return; 
     }
-    int declineTime = (int) passedTime - holdTime;
+    const uint64_t declineTime = passedSeconds >= holdTime ? (uint64_t)passedSeconds - holdTime : 0;
     const int matrixSize = sizeof(declineMatrix) / sizeof(declineMatrix[0]);
-    if (declineTime >= 0 && declineTime < settings[DECLINE_DURATION].value && declineTime < matrixSize)
+    if (declineTime < (uint64_t)max(settings[DECLINE_DURATION].value, 0) && declineTime < (uint64_t)matrixSize)
     {
         pumpPid.setSetPoint(declineMatrix[declineTime]);
     }
