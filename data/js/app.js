@@ -9,6 +9,9 @@
   let queuedEdit = false;
   let demo = false, demoTimer = null, demoSecond = 0;
   const realSamples = [];
+  let frozenSamples = null;
+  const hoverPosition = {liveChart:null,detailChart:null};
+  const plotBounds = {};
   let realTargetTemp = null;
   function demoReading(second) {
     const t = second % 44;
@@ -32,7 +35,7 @@
   function demoTick() {
     const sample=demoReading(demoSecond++);
     showReading(sample);
-    chartSamples.push({temp:sample.temp,press:sample.press});
+    chartSamples.push({t:Date.now()/1000,temp:sample.temp,press:sample.press});
     if(chartSamples.length>MAX_POINTS)chartSamples.shift();
     drawCharts();
   }
@@ -52,6 +55,8 @@
       $(id).querySelector("button[type=submit]").disabled=demo;
     $("targetTemperature").textContent=demo?"93 (DEMO)":realTargetTemp===null?"—":String(realTargetTemp);
     chartSamples.length=0;
+    frozenSamples=null;
+    updateFreezeButton();
     if(demo){
       demoSecond=0;demoTick();
       demoTimer=setInterval(demoTick,1000);
@@ -95,10 +100,10 @@
     } else if(msg.name==="updateInfo"){
       lastInfo.temp=number(msg.currentTemp);lastInfo.press=number(msg.currentPress);
       lastInfo.power=number(msg.currentPower);lastInfo.time=number(msg.currentTime)||0;
-      realSamples.push({temp:lastInfo.temp,press:lastInfo.press});
+      realSamples.push({t:Date.now()/1000,temp:lastInfo.temp,press:lastInfo.press});
       if(realSamples.length>MAX_POINTS)realSamples.shift();
       if(!demo){
-        chartSamples.push({temp:lastInfo.temp,press:lastInfo.press});
+        chartSamples.push({t:Date.now()/1000,temp:lastInfo.temp,press:lastInfo.press});
         if(chartSamples.length>MAX_POINTS)chartSamples.shift();
         publish();drawCharts();
       }
@@ -114,42 +119,106 @@
     ws.onerror=()=>ws.close();
     ws.onclose=()=>{setStatus(false);clearTimeout(reconnectHandle);reconnectHandle=setTimeout(connect,2500);};
   }
+  function visibleSamples(id) {
+    return id==="detailChart" && frozenSamples!==null?frozenSamples:chartSamples;
+  }
+  function updateFreezeButton() {
+    const frozen=frozenSamples!==null;
+    $("freezeChart").textContent=frozen?"Вернуться к LIVE":"Зафиксировать";
+    $("freezeChart").classList.toggle("freeze-active",frozen);
+    $("chartModeLabel").textContent=frozen?"Зафиксированный снимок · данные продолжают поступать":"Живые показания · последние 60 измерений";
+  }
   function draw(canvas) {
-    const context=canvas.getContext("2d");
-    if(!context)return;
-    const w=canvas.clientWidth,h=canvas.clientHeight,dpr=window.devicePixelRatio||1;
+    const ctx=canvas.getContext("2d");if(!ctx)return;
+    const w=canvas.clientWidth,h=canvas.clientHeight;
+    if(w<110||h<110)return;
+    const dpr=window.devicePixelRatio||1;
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
-    context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,w,h);
-    // Reserve a header band for units. Never place unit labels on tick values.
-    const left=48,right=Math.max(80,w-52),top=38,bottom=Math.max(65,h-28);
-    context.strokeStyle="#394355";context.lineWidth=1;
-    context.font="11px system-ui";context.fillStyle="#9aa8bd";
-    context.textAlign="right";context.fillStyle="#e5a36e";
-    context.fillText("°C",left-8,16);
-    context.textAlign="left";context.fillStyle="#69bfff";
-    context.fillText("бар",right+8,16);
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+    const left=48,right=w-52,top=38,bottom=h-35;
+    const samples=visibleSamples(canvas.id);
+    const first=samples.length?samples[0].t:0;
+    const end=samples.length?samples[samples.length-1].t:first+60;
+    const span=Math.max(1,end-first);
+    plotBounds[canvas.id]={left,right,top,bottom,first,span};
+    ctx.font="11px system-ui";ctx.textBaseline="alphabetic";
+    ctx.textAlign="right";ctx.fillStyle="#e5a36e";ctx.fillText("°C",left-8,16);
+    ctx.textAlign="left";ctx.fillStyle="#69bfff";ctx.fillText("бар",right+8,16);
     for(let i=0;i<=4;i++){
       const y=top+(bottom-top)*i/4;
-      context.strokeStyle="#394355";
-      context.beginPath();context.moveTo(left,y);context.lineTo(right,y);context.stroke();
-      context.fillStyle="#9aa8bd";
-      context.textAlign="right";context.fillText((150-i*37.5).toFixed(i%2?1:0),left-8,y+4);
-      context.textAlign="left";context.fillText(String(12-i*3),right+8,y+4);
+      ctx.strokeStyle="#394355";ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
+      ctx.fillStyle="#9aa8bd";
+      ctx.textAlign="right";ctx.fillText((150-i*37.5).toFixed(i%2?1:0),left-8,y+4);
+      ctx.textAlign="left";ctx.fillText(String(12-i*3),right+8,y+4);
     }
-    if(chartSamples.length<2){context.textAlign="center";context.fillText("Ожидание показаний…",(left+right)/2,(top+bottom)/2);return;}
-    const drawLine=(key,color,max)=>{
-      context.strokeStyle=color;context.lineWidth=2;context.lineJoin="round";context.beginPath();let started=false;
-      chartSamples.forEach((v,i)=>{
-        const val=v[key];if(val===null)return;
-        const x=left+(right-left)*i/(MAX_POINTS-1);
-        const y=bottom-(Math.max(0,Math.min(max,val))/max)*(bottom-top);
-        if(!started){context.moveTo(x,y);started=true;}else context.lineTo(x,y);
-      });
-      context.stroke();
-    };
-    drawLine("temp","#e5a36e",150);drawLine("press","#69bfff",12);
+    ctx.textAlign="center";ctx.fillStyle="#9aa8bd";
+    for(let i=0;i<=4;i++){
+      const x=left+(right-left)*i/4;
+      ctx.fillText((span*i/4).toFixed(span<10?1:0)+"с",x,h-11);
+    }
+    if(samples.length<2){
+      ctx.fillText("Ожидание показаний…",(left+right)/2,(top+bottom)/2);
+      $("liveTooltip"===canvas.id?"liveTooltip":"detailTooltip").hidden=true;
+      return;
+    }
+    const xAt=s=>left+(right-left)*(s.t-first)/span;
+    const yAt=(v,max)=>bottom-(Math.max(0,Math.min(max,v))/max)*(bottom-top);
+    for(const [key,color,max] of [["temp","#e5a36e",150],["press","#69bfff",12]]){
+      ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin="round";ctx.beginPath();
+      let started=false;
+      for(const s of samples){
+        if(s[key]===null||!Number.isFinite(s[key])){started=false;continue;}
+        const x=xAt(s),y=yAt(s[key],max);
+        if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+    const pos=hoverPosition[canvas.id];
+    const tooltip=$(canvas.id==="liveChart"?"liveTooltip":"detailTooltip");
+    if(pos===null||pos<left||pos>right){tooltip.hidden=true;return;}
+    const target=first+(pos-left)/(right-left)*span;
+    let sample=samples[0];
+    for(const s of samples)if(Math.abs(s.t-target)<Math.abs(sample.t-target))sample=s;
+    const x=xAt(sample);
+    ctx.save();ctx.strokeStyle="#96a7ba";ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();ctx.restore();
+    for(const [key,color,max] of [["temp","#e5a36e",150],["press","#69bfff",12]]){
+      if(sample[key]===null)continue;
+      ctx.beginPath();ctx.arc(x,yAt(sample[key],max),4,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
+    }
+    tooltip.textContent="";
+    for(const [txt,color] of [
+      [(sample.t-first).toFixed(1)+" с","#f2f4f8"],
+      ["Температура: "+fmt(sample.temp)+" °C","#e5a36e"],
+      ["Давление: "+fmt(sample.press)+" бар","#69bfff"]]){
+      const line=document.createElement("div");line.textContent=txt;line.style.color=color;tooltip.appendChild(line);
+    }
+    tooltip.hidden=false;
+    // Keep tooltip inside chart container rather than letting it cover the right axis.
+    const tw=tooltip.offsetWidth,th=tooltip.offsetHeight;
+    tooltip.style.left=Math.min(Math.max(0,x+12),w-tw-3)+"px";
+    tooltip.style.top=Math.max(0,Math.min(h-th-3,top+18))+"px";
   }
-  function drawCharts(){for(const id of ["liveChart","detailChart"]){const canvas=$(id);if(canvas && canvas.clientWidth>0)draw(canvas);}}
+  function drawCharts(){
+    for(const id of ["liveChart","detailChart"]){
+      const canvas=$(id);if(canvas&&canvas.clientWidth>0)draw(canvas);
+    }
+  }
+  function initChartPointers(){
+    for(const id of ["liveChart","detailChart"]){
+      const canvas=$(id);
+      canvas.addEventListener("pointermove",event=>{
+        hoverPosition[id]=event.clientX-canvas.getBoundingClientRect().left;
+        draw(canvas);
+      });
+      canvas.addEventListener("pointerleave",()=>{
+        hoverPosition[id]=null;$(id==="liveChart"?"liveTooltip":"detailTooltip").hidden=true;draw(canvas);
+      });
+      canvas.addEventListener("pointerdown",event=>{
+        hoverPosition[id]=event.clientX-canvas.getBoundingClientRect().left;draw(canvas);
+      });
+    }
+  }
   function navigate(){
     const page=(location.hash||"#dashboard").slice(1);
     const active=labels[page]?page:"dashboard";
@@ -198,8 +267,16 @@
     if(confirm("Перезагрузить ESP32?")){ws.send("reboot");message("Команда перезагрузки отправлена.");}
   });
   $("demoToggle").addEventListener("click",()=>setDemo(!demo));
-  $("clearChart").addEventListener("click",()=>{chartSamples.length=0;if(!demo)realSamples.length=0;drawCharts();});
+  $("freezeChart").addEventListener("click",()=>{
+    frozenSamples=frozenSamples===null?chartSamples.map(p=>({...p})):null;
+    updateFreezeButton();hoverPosition.detailChart=null;drawCharts();
+  });
+  $("clearChart").addEventListener("click",()=>{
+    chartSamples.length=0;
+    if(!demo)realSamples.length=0;
+    frozenSamples=null;hoverPosition.detailChart=null;updateFreezeButton();drawCharts();
+  });
   window.addEventListener("hashchange",navigate);
   window.addEventListener("resize",drawCharts);
-  navigate();publish();connect();
+  initChartPointers();updateFreezeButton();navigate();publish();connect();
 })();
