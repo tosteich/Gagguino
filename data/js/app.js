@@ -159,7 +159,7 @@
     }
     if(samples.length<2){
       ctx.fillText("Ожидание показаний…",(left+right)/2,(top+bottom)/2);
-      $("liveTooltip"===canvas.id?"liveTooltip":"detailTooltip").hidden=true;
+      $(canvas.id==="liveChart"?"liveTooltip":"detailTooltip").hidden=true;
       return;
     }
     const xAt=s=>left+(right-left)*(s.t-first)/span;
