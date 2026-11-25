@@ -38,6 +38,7 @@ void setup(void) {
   initWebFiles();
   shotArchive.begin();
   initBoilerWebCommandQueue();
+  initFullWebSettingsQueue();
   initWebSocket();
   initWebServerControllers();
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
