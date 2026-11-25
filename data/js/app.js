@@ -7,6 +7,61 @@
   let ws, reconnectHandle, connected=false;
   let lastInfo = {temp:null,press:null,power:null,time:0};
   let queuedEdit = false;
+  let demo = false, demoTimer = null, demoSecond = 0;
+  const realSamples = [];
+  let realTargetTemp = null;
+  function demoReading(second) {
+    const t = second % 44;
+    let pressure;
+    if(t < 5) pressure = 0;
+    else if(t < 12) pressure = 1.2 + (t-5)*0.05;
+    else if(t < 19) pressure = 1.55 + (t-12)*7.5/7;
+    else if(t < 29) pressure = 9.05 + 0.08*Math.sin(t*1.4);
+    else if(t < 39) pressure = 9 - (t-29)*0.45;
+    else pressure = Math.max(0,4.5-(t-39)*1.2);
+    return {temp:93.2+0.45*Math.sin(t/5)-0.1*Math.sin(t*1.7),
+            press:Math.max(0,pressure),power:Math.max(0,Math.min(100,45+23*Math.sin(t/4))),time:t};
+  }
+  function showReading(value) {
+    $("temperature").textContent=fmt(value.temp);
+    $("pressure").textContent=fmt(value.press);
+    $("currentTime").textContent=clock(value.time);
+    $("heatPower").textContent=value.power===null?"—":String(Math.round(value.power));
+    $("heatBar").style.width=Math.max(0,Math.min(100,value.power||0))+"%";
+  }
+  function demoTick() {
+    const sample=demoReading(demoSecond++);
+    showReading(sample);
+    chartSamples.push({temp:sample.temp,press:sample.press});
+    if(chartSamples.length>MAX_POINTS)chartSamples.shift();
+    drawCharts();
+  }
+  function setDemo(enabled) {
+    if(demo===enabled)return;
+    if(enabled && queuedEdit){message("Сначала дождитесь окончания отправки настроек.",true);return;}
+    demo=enabled;
+    if(demoTimer!==null){clearInterval(demoTimer);demoTimer=null;}
+    $("demoBadge").hidden=!demo;
+    $("demoNotice").hidden=!demo;
+    $("demoToggle").textContent=demo?"Отключить DEMO":"Включить DEMO";
+    $("demoToggle").classList.toggle("demo-active",demo);
+    $("demoToggle").setAttribute("aria-pressed",String(demo));
+    for(const id of ["tempInput","kpInput","kiInput","kdInput","rebootButton"])
+      $(id).disabled=demo;
+    for(const id of ["temperatureForm","pidForm"])
+      $(id).querySelector("button[type=submit]").disabled=demo;
+    $("targetTemperature").textContent=demo?"93 (DEMO)":realTargetTemp===null?"—":String(realTargetTemp);
+    chartSamples.length=0;
+    if(demo){
+      demoSecond=0;demoTick();
+      demoTimer=setInterval(demoTick,1000);
+      message("DEMO: команды ESP32 отключены.");
+    }else{
+      chartSamples.push(...realSamples);
+      publish();drawCharts();
+      message("DEMO отключён. Возврат к реальным показаниям ESP32.");
+    }
+  }
   function setStatus(value) {
     connected=value;
     $("connectionBadge").textContent=value?"Подключено":"Нет соединения";
@@ -19,11 +74,7 @@
   function fmt(v,d=1){return v===null?"—":v.toFixed(d);}
   function clock(value){let sec=Math.max(0,Math.floor(Number(value)||0));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0");}
   function publish() {
-    $("temperature").textContent=fmt(lastInfo.temp);
-    $("pressure").textContent=fmt(lastInfo.press);
-    $("currentTime").textContent=clock(lastInfo.time);
-    $("heatPower").textContent=lastInfo.power===null?"—":String(Math.round(lastInfo.power));
-    $("heatBar").style.width=Math.max(0,Math.min(100,lastInfo.power||0))+"%";
+    if(!demo) showReading(lastInfo);
   }
   function syncSettings(message) {
     const props={targetTemp:["targetTemperature","tempInput"],pidKp:[null,"kpInput"],pidKi:[null,"kiInput"],pidKd:[null,"kdInput"]};
@@ -31,8 +82,9 @@
       if(message[key]===undefined) continue;
       const n=number(message[key]);if(n===null) continue;
       const [display,input]=props[key];
-      if(display) $(display).textContent=String(n);
-      if(input && document.activeElement!==$(input) && !queuedEdit)$(input).value=String(n);
+      if(key==="targetTemp")realTargetTemp=n;
+      if(display && !demo)$(display).textContent=String(n);
+      if(input && !demo && document.activeElement!==$(input) && !queuedEdit)$(input).value=String(n);
     }
   }
   function onMessage(event) {
@@ -43,9 +95,13 @@
     } else if(msg.name==="updateInfo"){
       lastInfo.temp=number(msg.currentTemp);lastInfo.press=number(msg.currentPress);
       lastInfo.power=number(msg.currentPower);lastInfo.time=number(msg.currentTime)||0;
-      chartSamples.push({temp:lastInfo.temp,press:lastInfo.press});
-      if(chartSamples.length>MAX_POINTS)chartSamples.shift();
-      publish();drawCharts();
+      realSamples.push({temp:lastInfo.temp,press:lastInfo.press});
+      if(realSamples.length>MAX_POINTS)realSamples.shift();
+      if(!demo){
+        chartSamples.push({temp:lastInfo.temp,press:lastInfo.press});
+        if(chartSamples.length>MAX_POINTS)chartSamples.shift();
+        publish();drawCharts();
+      }
     } else if(["targetTemp","pidKp","pidKi","pidKd"].includes(msg.name)){
       syncSettings({[msg.name]:msg.value});
     }
@@ -103,12 +159,14 @@
   }
   function message(text,error=false){$("formStatus").textContent=text;$("formStatus").style.color=error?"#ef8189":"#a0adbf";}
   async function send(path,params) {
+    if(demo)throw new Error("В DEMO запрещены команды ESP32.");
     const qs=new URLSearchParams(params);
     const response=await fetch(path+"?"+qs.toString(),{cache:"no-store"});
     if(!response.ok)throw new Error("HTTP "+response.status+": "+await response.text());
     return response;
   }
   async function submitSettings(events) {
+    if(demo){message("В DEMO изменение настроек ESP32 запрещено.",true);return;}
     queuedEdit=true;
     try {
       for(const [path,params] of events)await send(path,params);
@@ -135,10 +193,12 @@
     submitSettings(actions);
   });
   $("rebootButton").addEventListener("click",()=>{
+    if(demo){message("В DEMO перезагрузка ESP32 запрещена.",true);return;}
     if(!connected){message("Нет соединения с ESP32.",true);return;}
     if(confirm("Перезагрузить ESP32?")){ws.send("reboot");message("Команда перезагрузки отправлена.");}
   });
-  $("clearChart").addEventListener("click",()=>{chartSamples.length=0;drawCharts();});
+  $("demoToggle").addEventListener("click",()=>setDemo(!demo));
+  $("clearChart").addEventListener("click",()=>{chartSamples.length=0;if(!demo)realSamples.length=0;drawCharts();});
   window.addEventListener("hashchange",navigate);
   window.addEventListener("resize",drawCharts);
   navigate();publish();connect();
