@@ -115,6 +115,8 @@ ESP32_FTPClient ftp(ftp_server, ftp_user, ftp_pass, 5000, 2);
 StopWatch stopWatch;
 
 bool sensorsReadyThisLoop = false;
+// Prevent stale PID state being reused when qualified LMT01 data returns.
+bool boilerPidSensorWasFresh = false;
 
 void loop() {
   myNex.NextionListen();
@@ -136,10 +138,17 @@ void loop() {
 
   updatePumpPower();
 
-  // A stale/missing temperature must disable heat even between sensor updates.
-  if (!temperatureGuard.fresh(millis())) {
+  // Loss of qualified LMT01 data must disable heat between sensor updates.
+  const bool temperatureFresh = temperatureGuard.fresh(millis());
+  if (!temperatureFresh) {
+    if (boilerPidSensorWasFresh) {
+      boilerPid.resetState();
+    }
+    boilerPidSensorWasFresh = false;
     heatPower = 0;
     boiler.setHeatPower(0);
+  } else {
+    boilerPidSensorWasFresh = true;
   }
   boiler.updateHeater();
 
