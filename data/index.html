@@ -22,9 +22,10 @@
     <main class="content">
       <header class="topbar">
         <div><p class="eyebrow">GAGGIA ESPRESSO CONTROLLER</p><h1 id="pageTitle">Обзор</h1></div>
-        <span id="connectionBadge" class="status-badge">Нет соединения</span>
+        <div class="header-actions"><span id="demoBadge" class="demo-badge" hidden>DEMO · СИМУЛЯЦИЯ</span><button type="button" class="btn secondary" id="demoToggle" aria-pressed="false">Включить DEMO</button><span id="connectionBadge" class="status-badge">Нет соединения</span></div>
       </header>
 
+      <div id="demoNotice" class="demo-notice" role="status" hidden>DEMO: показания и графики искусственные. Команды ESP32 отключены.</div>
       <section id="page-dashboard" class="page">
         <div class="metrics">
           <article class="card metric"><span class="metric-label">Температура бойлера</span><div class="metric-value temperature"><span id="temperature">—</span><small>°C</small></div><span class="metric-sub">Цель <b id="targetTemperature">—</b> °C</span></article>
