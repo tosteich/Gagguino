@@ -64,16 +64,22 @@
     const w=canvas.clientWidth,h=canvas.clientHeight,dpr=window.devicePixelRatio||1;
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
     context.setTransform(dpr,0,0,dpr,0,0);context.clearRect(0,0,w,h);
-    const left=37,right=w-36,top=16,bottom=h-28;
+    // Reserve a header band for units. Never place unit labels on tick values.
+    const left=48,right=Math.max(80,w-52),top=38,bottom=Math.max(65,h-28);
     context.strokeStyle="#394355";context.lineWidth=1;
     context.font="11px system-ui";context.fillStyle="#9aa8bd";
+    context.textAlign="right";context.fillStyle="#e5a36e";
+    context.fillText("°C",left-8,16);
+    context.textAlign="left";context.fillStyle="#69bfff";
+    context.fillText("бар",right+8,16);
     for(let i=0;i<=4;i++){
       const y=top+(bottom-top)*i/4;
+      context.strokeStyle="#394355";
       context.beginPath();context.moveTo(left,y);context.lineTo(right,y);context.stroke();
-      context.textAlign="right";context.fillText(String(150-i*37.5).replace(".5","٫5"),left-8,y+4);
-      context.textAlign="left";context.fillText((12-i*3)+"",right+6,y+4);
+      context.fillStyle="#9aa8bd";
+      context.textAlign="right";context.fillText((150-i*37.5).toFixed(i%2?1:0),left-8,y+4);
+      context.textAlign="left";context.fillText(String(12-i*3),right+8,y+4);
     }
-    context.textAlign="left";context.fillStyle="#9aa8bd";context.fillText("°C",5,12);context.fillText("бар",right+7,12);
     if(chartSamples.length<2){context.textAlign="center";context.fillText("Ожидание показаний…",(left+right)/2,(top+bottom)/2);return;}
     const drawLine=(key,color,max)=>{
       context.strokeStyle=color;context.lineWidth=2;context.lineJoin="round";context.beginPath();let started=false;
