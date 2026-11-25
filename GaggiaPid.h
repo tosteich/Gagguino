@@ -8,6 +8,7 @@ class GaggiaPid {
 private:
   float iState = 0;
   float lastPoint = 0;
+  bool skipDerivativeOnce = false;
   float pTerm = 0;
   float dTerm = 0;
   float Kp = 0, Ki = 0, Kd = 0;
@@ -38,6 +39,7 @@ public:
   void resetState() {
     iState = 0;
     lastPoint = 0;
+    skipDerivativeOnce = true;
     pTerm = 0;
     dTerm = 0;
   }
@@ -51,7 +53,8 @@ public:
 
     float error = setPoint - input;
     pTerm = Kp * error;
-    dTerm = Kd * (input - lastPoint) / periodSec;
+    dTerm = skipDerivativeOnce ? 0.0f : Kd * (input - lastPoint) / periodSec;
+    skipDerivativeOnce = false;
     lastPoint = input;
     iState += error * Ki * periodSec;
 
