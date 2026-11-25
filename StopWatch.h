@@ -5,6 +5,7 @@ private:
   uint32_t startTime = 0;
   bool started = false;
   uint32_t resetTime = 0;
+  bool hasCompletedShot = false;
   byte timerSecs = 0;
   byte timerMils = 0;
   byte wsClients = 0;
@@ -33,7 +34,8 @@ public:
       const uint32_t currTime = millis();
       if (!started) {
         startTime = currTime;
-        resetTime = currTime; // The clock begins at shot start, not at a later UI update.
+        resetTime = currTime;
+        hasCompletedShot = false;
         started = true;
         memoryTimer = 0;
       }
@@ -77,6 +79,10 @@ public:
   }
 
   void setIsFlow(boolean isFlow) {
+    if (this->isFlow && !isFlow) {
+      resetTime = millis(); // Confirmed release: start after-shot clock.
+      hasCompletedShot = true;
+    }
     this->isFlow = isFlow;
   }
 
@@ -97,5 +103,11 @@ public:
 
   uint32_t getResetTime() {
     return resetTime;
+  }
+
+  uint32_t getCurrentTimeSeconds(uint32_t nowMs) const {
+    if (isFlow) return timerTime / 1000;
+    if (!hasCompletedShot) return 0;
+    return (uint32_t)(nowMs - resetTime) / 1000;
   }
 };
