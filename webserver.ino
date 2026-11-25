@@ -438,14 +438,14 @@ void initWebServerControllers() {
     String output = "{";
     for (uint8_t i = 0; i < WEB_SETTING_COUNT; ++i) {
       if (i) output += ",";
-      output += "\\\"" + String(keys[i]) + "\\\":" +
+      output += "\"" + String(keys[i]) + "\":" +
           String(publishedWebSettings[i].load() /
               ((i == PID_KP || i == PID_KI || i == PID_KD ||
                 i == PUMP_KP || i == PUMP_KI || i == PUMP_KD ||
                 i == PREINFUSE_PRESSURE || i == HOLD_PRESSURE || i == DECLINE_PRESSURE)
                   ? 10.0f : 1.0f), 1);
     }
-    output += ",\\\"revision\\\":" + String(webSettingsRevision.load()) + "}";
+    output += ",\"revision\":" + String(webSettingsRevision.load()) + "}";
     request->send(200, "application/json", output);
   });
   server.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest *request) {
