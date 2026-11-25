@@ -326,7 +326,7 @@
     if(active==="graphs")refreshArchive();
     if(active==="settings")reloadAllSettings();
   }
-  function message(text,error=false){$("formStatus").textContent=text;$("formStatus").style.color=error?"#ef8189":"#a0adbf";}
+  function message(text,error=false){const el=$("allSettingsStatus");el.textContent=text;el.style.color=error?"#ef8189":"#a0adbf";}
   const settingGroups = [
     {holder:"profileSettingsFields",items:[
       ["preinfDur","Предсмачивание · время","с",0,600,1],
