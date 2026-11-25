@@ -24,7 +24,7 @@ Implemented on `feature/dark-web-ui`. The verified firmware branch and FTP confi
 ## Binary v1 (little endian)
 Header 16 bytes:
 `uint32 magic(0x31485347), uint16 version(1), uint16 count,
-uint32 durationMs, uint32 startedUnix(0 reserved)`.
+uint32 durationMs, uint32 startedUnix(UTC start timestamp, or 0 if unsynced)`.
 Each sample 8 bytes:
 `uint16 tick(200ms), int16 temperature*10, uint16 pressure*100,
 uint8 heatPercent, uint8 pumpPercent`.
@@ -42,8 +42,9 @@ uint8 heatPercent, uint8 pumpPercent`.
   the entire filesystem partition, including previously archived shots.**
   Keep backups before another filesystem upload. A normal firmware-only
   upload with the same partition layout does not intentionally touch it.
-- No timestamp is captured yet; records have a stable sequential ID and
-  duration. The v1 field `startedUnix` is reserved as zero.
+- New recordings store a UTC start timestamp when the ESP32 SNTP clock is valid.
+  Old v1 recordings have `startedUnix=0` and display `Дата неизвестна`.
+  If SNTP has not synchronized, the timestamp remains zero (no invented dates).
 - The format has a header and length validation, but no CRC. Flash corruption
   beyond structural validation is not yet detected.
 - FTP remains enabled/unchanged; disable it only after on-device archive
@@ -94,3 +95,16 @@ uint8 heatPercent, uint8 pumpPercent`.
 - The synthetic archive test endpoints are accessible on the local network
   while the bench flag is enabled, and they modify LittleFS. Disable the flag
   before connecting to machine hardware.
+
+## Date and time
+- ESP32 starts asynchronous UTC synchronization with `configTime(0,0,...)`.
+  Archive writes `startedUnix` (UTC epoch seconds) at the start of an actual
+  or generated shot; 0 means clock unavailable.
+- The web UI formats timestamps in `Europe/Kyiv`, automatically accounting
+  for winter/summer time. Existing binary files are compatible and unchanged.
+- Firmware-only upload will update the timestamp logic without replacing
+  filesystem data. Updating `data/js/app.js` is also necessary to display dates;
+  **a full LittleFS image upload can erase all stored shot records**.
+  Back up the archive first, or update the JS asset without reformatting.
+- Verify a new shot after network time synchronization; old records have no
+  timestamp to recover, and test shots before sync may also show unknown date.
