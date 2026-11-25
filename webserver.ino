@@ -74,7 +74,7 @@ void applyPendingFullWebSettings() {
     if (settings[i].value == command.values[i]) continue;
     settings[i].value = command.values[i];
     preferences.putInt(settings[i].key, settings[i].value);
-    updateSettingValueOnNex(i);
+    updateWebSettingOnNex(i);
     if (i == TARGET_TEMP || i == STEAM_TEMP || i == PID_KP || i == PID_KI || i == PID_KD)
       changedBoiler = true;
     if (i == PUMP_KP || i == PUMP_KI || i == PUMP_KD) changedPump = true;
