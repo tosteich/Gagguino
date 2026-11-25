@@ -124,6 +124,17 @@ ShotArchive shotArchive;
 #ifdef GAGGUINO_SHOT_ARCHIVE_TEST
 // HTTP handlers only enqueue a request. The main loop builds test samples.
 std::atomic<uint32_t> pendingShotTestMs{0};
+// Batch request encoding: count in upper 16 bits, duration in seconds in lower 16.
+std::atomic<uint32_t> pendingShotBatch{0};
+// 0=idle, 1=queued, 2=running, 3=completed, 4=failed.
+std::atomic<uint8_t> shotBatchState{0};
+std::atomic<uint32_t> shotBatchTotal{0};
+std::atomic<uint32_t> shotBatchQueued{0};
+std::atomic<uint32_t> shotBatchSaved{0};
+std::atomic<uint32_t> shotBatchFailed{0};
+uint32_t shotBatchDurationMs=0;
+uint32_t shotBatchBaseSaved=0;
+uint32_t shotBatchBaseFailed=0;
 #endif
 
 // Web callbacks read published settings without accessing the live PID.
@@ -202,10 +213,46 @@ void loop() {
 
   updateVariablesFromSensorsData(); 
 #ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+  // Requests are accepted by AsyncWebServer, but generation stays in loop().
   const uint32_t requestedTestMs = pendingShotTestMs.exchange(0);
   if (requestedTestMs != 0) {
-    if (stopWatch.getIsFlow() || !shotArchive.generateTestShot(requestedTestMs)) {
+    if (shotBatchState.load() == 1 || shotBatchState.load() == 2 ||
+        stopWatch.getIsFlow() || !shotArchive.generateTestShot(requestedTestMs)) {
       Serial.println("SHOT_TEST: busy or physical flow active; test skipped");
+    }
+  }
+  const uint32_t requestedBatch = pendingShotBatch.exchange(0);
+  if (requestedBatch != 0 && shotBatchState.load() == 1) {
+    shotBatchTotal.store(requestedBatch >> 16);
+    shotBatchQueued.store(0);
+    shotBatchSaved.store(0);
+    shotBatchFailed.store(0);
+    shotBatchDurationMs = (requestedBatch & 0xffff) * 1000UL;
+    shotBatchBaseSaved = shotArchive.testSaved();
+    shotBatchBaseFailed = shotArchive.testFailed();
+    shotBatchState.store(2);
+    Serial.printf("SHOT_TEST_BATCH: starting %lu shots, %lu ms each\\n",
+                  (unsigned long)shotBatchTotal.load(),
+                  (unsigned long)shotBatchDurationMs);
+  }
+  if (shotBatchState.load() == 2) {
+    const uint32_t saved = shotArchive.testSaved() - shotBatchBaseSaved;
+    const uint32_t failed = shotArchive.testFailed() - shotBatchBaseFailed;
+    shotBatchSaved.store(saved);
+    shotBatchFailed.store(failed);
+    if (failed != 0 || stopWatch.getIsFlow()) {
+      shotBatchState.store(4);
+      Serial.println("SHOT_TEST_BATCH: stopped (write failed or physical flow)");
+    } else if (saved == shotBatchTotal.load()) {
+      shotBatchState.store(3);
+      Serial.println("SHOT_TEST_BATCH: completed");
+    } else if (saved == shotBatchQueued.load()) {
+      if (shotArchive.generateTestShot(shotBatchDurationMs)) {
+        shotBatchQueued.fetch_add(1);
+      } else {
+        shotBatchState.store(4);
+        Serial.println("SHOT_TEST_BATCH: unable to queue next shot");
+      }
     }
   }
 #endif
