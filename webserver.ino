@@ -95,7 +95,7 @@ void changeTargetTemp(byte temp) {
 }
 
 void sendWsTargetTemp() {
-  if (wsClients > 0) {
+  if (wsClients.load() > 0) {
     char buffer[50];
     snprintf(buffer, sizeof(buffer), "{\"name\":\"targetTemp\",\"value\":\"%u\"}", settings[TARGET_TEMP].value);
     ws.textAll(buffer);
@@ -177,15 +177,15 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
   switch (type) {
     case WS_EVT_CONNECT:
       Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-      wsClients++;
-      stopWatch.setWsClients(wsClients);
-      Serial.printf("Total connected clients - %u\n", wsClients);
+      const unsigned int connected = wsClients.fetch_add(1) + 1;
+      Serial.printf("Total connected clients - %u\n", connected);
       break;
     case WS_EVT_DISCONNECT:
       Serial.printf("WebSocket client #%u disconnected\n", client->id());
-      wsClients--;
-      stopWatch.setWsClients(wsClients);
-      Serial.printf("Total connected clients - %u\n", wsClients);
+      // Saturate at zero rather than wrap to 255 on an unexpected event.
+      unsigned int previous = wsClients.load();
+      while (previous > 0 && !wsClients.compare_exchange_weak(previous, previous - 1)) {}
+      Serial.printf("Total connected clients - %u\n", previous > 0 ? previous - 1 : 0);
       break;
     case WS_EVT_DATA:
       handleWebSocketMessage(client, arg, data, len);

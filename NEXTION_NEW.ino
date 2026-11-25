@@ -50,7 +50,8 @@ char ftp_user[] = "gaggia";
 char ftp_pass[] = "123";
 const char* ssid = "KKK";            //Name of your home Wi-Fi
 const char* password = "muzzleoid";  //Password of your home Wi-Fi
-volatile byte wsClients = 0;
+// AsyncTCP callbacks run in another FreeRTOS task.
+std::atomic<unsigned int> wsClients{0};
 float currentTemperature = 1;
 float lastSentTemperature = 1;
 float currentPressure = 0;
@@ -131,6 +132,8 @@ void loop() {
   myNex.NextionListen();
 
   ws.cleanupClients();
+  // StopWatch is owned by loop(), never written from AsyncTCP callbacks.
+  stopWatch.setWsClients((byte)min(wsClients.load(), 255u));
 
   checkMachineButtonStatus();
 
