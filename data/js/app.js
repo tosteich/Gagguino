@@ -53,10 +53,10 @@
     $("demoToggle").textContent=demo?"Отключить DEMO":"Включить DEMO";
     $("demoToggle").classList.toggle("demo-active",demo);
     $("demoToggle").setAttribute("aria-pressed",String(demo));
-    for(const id of ["tempInput","kpInput","kiInput","kdInput","rebootButton"])
-      $(id).disabled=demo;
-    for(const id of ["temperatureForm","pidForm"])
-      $(id).querySelector("button[type=submit]").disabled=demo;
+    for(const input of document.querySelectorAll("#allSettingsForm input"))input.disabled=demo;
+    $("saveAllSettings").disabled=demo;
+    $("reloadAllSettings").disabled=demo;
+    $("rebootButton").disabled=demo;
     $("targetTemperature").textContent=demo?"93 (DEMO)":realTargetTemp===null?"—":String(realTargetTemp);
     chartSamples.length=0;
     frozenSamples=null;
@@ -88,14 +88,12 @@
     if(!demo) showReading(lastInfo);
   }
   function syncSettings(message) {
-    const props={targetTemp:["targetTemperature","tempInput"],pidKp:[null,"kpInput"],pidKi:[null,"kiInput"],pidKd:[null,"kdInput"]};
-    for(const key of Object.keys(props)) {
-      if(message[key]===undefined) continue;
-      const n=number(message[key]);if(n===null) continue;
-      const [display,input]=props[key];
-      if(key==="targetTemp")realTargetTemp=n;
-      if(display && !demo)$(display).textContent=String(n);
-      if(input && !demo && document.activeElement!==$(input) && !queuedEdit)$(input).value=String(n);
+    if(message.targetTemp!==undefined) {
+      const temp=number(message.targetTemp);
+      if(temp!==null) {
+        realTargetTemp=temp;
+        if(!demo)$("targetTemperature").textContent=String(temp);
+      }
     }
   }
   function onMessage(event) {
@@ -326,41 +324,113 @@
     document.querySelectorAll(".nav-link").forEach(a=>{a.classList.toggle("active",a.dataset.page===active);});
     $("pageTitle").textContent=labels[active];drawCharts();
     if(active==="graphs")refreshArchive();
+    if(active==="settings")reloadAllSettings();
   }
   function message(text,error=false){$("formStatus").textContent=text;$("formStatus").style.color=error?"#ef8189":"#a0adbf";}
-  async function send(path,params) {
-    if(demo)throw new Error("В DEMO запрещены команды ESP32.");
-    const qs=new URLSearchParams(params);
-    const response=await fetch(path+"?"+qs.toString(),{cache:"no-store"});
-    if(!response.ok)throw new Error("HTTP "+response.status+": "+await response.text());
-    return response;
-  }
-  async function submitSettings(events) {
-    if(demo){message("В DEMO изменение настроек ESP32 запрещено.",true);return;}
-    queuedEdit=true;
-    try {
-      for(const [path,params] of events)await send(path,params);
-      message("Изменения приняты сервером и поставлены в очередь. Обновление значений придёт через WebSocket.");
-    }catch(error){message("Не удалось применить настройки: "+error.message,true);}
-    finally{queuedEdit=false;}
-  }
-  $("temperatureForm").addEventListener("submit",event=>{
-    event.preventDefault();
-    const v=Number($("tempInput").value);
-    if(!Number.isInteger(v)||v<20||v>105){message("Температура должна быть целым числом от 20 до 105 °C.",true);return;}
-    submitSettings([["/targetTemp",{temp:String(v)}]]);
-  });
-  $("pidForm").addEventListener("submit",event=>{
-    event.preventDefault();
-    const entries=[["kpInput","/changePidKp","Kp"],["kiInput","/changePidKi","Ki"],["kdInput","/changePidKd","Kd"]];
-    const actions=[];
-    for(const [id,path,key] of entries){
-      const value=Number($(id).value);
-      if(!Number.isFinite(value)||value<0||value>100){message("PID-коэффициенты должны быть от 0 до 100.",true);return;}
-      actions.push([path,{[key]:String(value)}]);
+  const settingGroups = [
+    {holder:"profileSettingsFields",items:[
+      ["preinfDur","Предсмачивание · время","с",0,600,1],
+      ["preinfPress","Предсмачивание · давление","бар",0,12,0.1],
+      ["holdDur","Набор и удержание · время","с",0,600,1],
+      ["holdPress","Набор и удержание · давление","бар",0,12,0.1],
+      ["declineDur","Снижение · время","с",0,60,1],
+      ["declinePress","Снижение · конечное давление","бар",0,12,0.1]]},
+    {holder:"temperatureSettingsFields",items:[
+      ["targetTemp","Температура приготовления","°C",20,105,1],
+      ["steamTemp","Температура пара","°C",100,144,1]]},
+    {holder:"boilerSettingsFields",items:[
+      ["pidKp","Kp","",0,100,0.1],["pidKi","Ki","",0,100,0.1],
+      ["pidKd","Kd","",0,100,0.1]]},
+    {holder:"pumpSettingsFields",items:[
+      ["pumpKp","Kp","",0,100,0.1],["pumpKi","Ki","",0,100,0.1],
+      ["pumpKd","Kd","",0,100,0.1]]}
+  ];
+  const settingSpecs=settingGroups.flatMap(g=>g.items);
+  let settingsRevision=null;
+  function buildSettingsFields() {
+    for(const group of settingGroups) {
+      const holder=$(group.holder);
+      for(const [key,label,unit,min,max,step] of group.items) {
+        const field=document.createElement("div");
+        field.className="web-setting-row";
+        const caption=document.createElement("label");
+        caption.htmlFor="setting-"+key;
+        caption.textContent=label;
+        const controls=document.createElement("div");
+        controls.className="web-setting-controls";
+        const input=document.createElement("input");
+        input.id="setting-"+key; input.name=key; input.type="number";
+        input.min=String(min);input.max=String(max);input.step=String(step);
+        input.required=true;input.disabled=true;
+        const suffix=document.createElement("span");
+        suffix.textContent=unit;
+        controls.append(input,suffix);field.append(caption,controls);
+        holder.append(field);
+      }
     }
-    if(!confirm("Применить новые PID-коэффициенты бойлера?"))return;
-    submitSettings(actions);
+  }
+  function settingsStatus(text,error=false) {
+    const el=$("allSettingsStatus");el.textContent=text;
+    el.style.color=error?"#ef8189":"#a0adbf";
+  }
+  async function readAllSettings(overwrite=true) {
+    const response=await fetch("/api/settings",{cache:"no-store"});
+    if(!response.ok)throw Error("HTTP "+response.status);
+    const data=await response.json();
+    for(const [key,,,min,max,step] of settingSpecs){
+      const value=Number(data[key]);
+      if(!Number.isFinite(value)||value<min||value>max)throw Error("Некорректное значение "+key);
+      const input=$("setting-"+key);
+      if(overwrite)input.value=String(value);
+      input.disabled=demo;
+    }
+    settingsRevision=data.revision;
+    syncSettings(data);
+    return data;
+  }
+  async function reloadAllSettings() {
+    if(queuedEdit)return;
+    try {
+      await readAllSettings(true);
+      settingsStatus("Параметры загружены с ESP32.");
+    }catch(error){settingsStatus("Не удалось загрузить настройки: "+error.message,true);}
+  }
+  $("reloadAllSettings").addEventListener("click",reloadAllSettings);
+  $("allSettingsForm").addEventListener("submit",async event=>{
+    event.preventDefault();
+    if(demo||queuedEdit){settingsStatus("Сохранение недоступно в DEMO или пока идёт другая операция.",true);return;}
+    const payload=new URLSearchParams();
+    for(const [key,,,min,max,step] of settingSpecs){
+      const input=$("setting-"+key);
+      const n=Number(input.value);
+      if(input.value.trim()===""||!Number.isFinite(n)||n<min||n>max||
+         Math.abs(Math.round(n/step)*step-n)>0.000001){
+        settingsStatus("Проверь значение: "+key,true);input.focus();return;
+      }
+      payload.set(key,input.value);
+    }
+    if(!confirm("Сохранить все параметры приготовления и PID на ESP32?"))return;
+    queuedEdit=true;$("saveAllSettings").disabled=true;
+    try {
+      const response=await fetch("/api/settings",{
+        method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+        body:payload.toString(),cache:"no-store"
+      });
+      if(!response.ok)throw Error("HTTP "+response.status+" "+await response.text());
+      settingsStatus("Команда принята. Проверяем сохранение…");
+      let confirmed=false;
+      for(let attempt=0;attempt<12;attempt++){
+        await new Promise(resolve=>setTimeout(resolve,250));
+        const actual=await readAllSettings(false);
+        if([...payload].every(([key,v])=>Math.abs(Number(actual[key])-Number(v))<0.00001)){
+          confirmed=true;break;
+        }
+      }
+      if(!confirmed)throw Error("ESP32 ещё не подтвердила новые параметры");
+      await readAllSettings(true);
+      settingsStatus("Все 14 параметров сохранены и подтверждены ESP32.");
+    }catch(error){settingsStatus("Не удалось подтвердить сохранение: "+error.message,true);}
+    finally{queuedEdit=false;$("saveAllSettings").disabled=demo;}
   });
   $("rebootButton").addEventListener("click",()=>{
     if(demo){message("В DEMO перезагрузка ESP32 запрещена.",true);return;}
@@ -387,5 +457,5 @@
   $("downloadShot").addEventListener("click",downloadArchiveCsv);
   window.addEventListener("hashchange",navigate);
   window.addEventListener("resize",drawCharts);
-  initChartPointers();updateArchiveButtons();navigate();publish();connect();
+  buildSettingsFields();initChartPointers();updateArchiveButtons();navigate();publish();connect();
 })();
