@@ -121,6 +121,10 @@ ESP32_FTPClient ftp(ftp_server, ftp_user, ftp_pass, 5000, 2);
 
 StopWatch stopWatch;
 ShotArchive shotArchive;
+#ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+// HTTP handlers only enqueue a request. The main loop builds test samples.
+std::atomic<uint32_t> pendingShotTestMs{0};
+#endif
 
 // Web callbacks read published settings without accessing the live PID.
 std::atomic<int> publishedTargetTemp{0};
@@ -197,6 +201,15 @@ void loop() {
   sensorsReadyThisLoop = sensorsTimer.ready();
 
   updateVariablesFromSensorsData(); 
+#ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+  const uint32_t requestedTestMs = pendingShotTestMs.exchange(0);
+  if (requestedTestMs != 0) {
+    if (stopWatch.getIsFlow() || !shotArchive.generateTestShot(requestedTestMs)) {
+      Serial.println("SHOT_TEST: busy or physical flow active; test skipped");
+    }
+  }
+#endif
+
   // Capture one bounded sample at each 200 ms sensor tick; no flash I/O here.
   if (sensorsReadyThisLoop) {
     shotArchive.sample(stopWatch.getIsFlow(), stopWatch.getTimerTime(),
