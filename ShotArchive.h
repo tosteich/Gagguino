@@ -10,6 +10,7 @@
 #include <freertos/semphr.h>
 #include <freertos/task.h>
 #include <math.h>
+#include <atomic>
 
 class ShotArchive {
  public:
@@ -126,6 +127,7 @@ class ShotArchive {
     if (slot < 0) return false;
     Buffer &buf = slots_[slot];
     buf.state = 1;
+    buf.synthetic = false;
     buf.header = {MAGIC, 1, 0, durationMs, 0};
     const uint16_t count = (uint16_t)min(durationMs / SAMPLE_INTERVAL_MS,
                                           (uint32_t)MAX_SAMPLES);
@@ -152,6 +154,7 @@ class ShotArchive {
       return true;
     }
     const uint8_t index = (uint8_t)slot;
+    buf.synthetic = true;
     buf.state = 2;
     if (xQueueSend(pending_, &index, 0) != pdTRUE) {
       buf.state = 0;
@@ -161,6 +164,11 @@ class ShotArchive {
                   (unsigned long)durationMs, count);
     return true;
   }
+#endif
+
+#ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+  uint32_t testSaved() const { return testSaved_.load(); }
+  uint32_t testFailed() const { return testFailed_.load(); }
 #endif
 
   bool available() const { return ready_; }
@@ -219,6 +227,9 @@ class ShotArchive {
  private:
   struct Buffer {
     volatile uint8_t state=0; // 0=free; 1=capturing; 2=queued/writing
+#ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+    bool synthetic=false;
+#endif
     Header header{};
     Sample samples[MAX_SAMPLES]{};
   };
@@ -230,6 +241,10 @@ class ShotArchive {
   QueueHandle_t pending_=nullptr;
   SemaphoreHandle_t mutex_=nullptr;
   TaskHandle_t writer_=nullptr;
+#ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+  std::atomic<uint32_t> testSaved_{0};
+  std::atomic<uint32_t> testFailed_{0};
+#endif
 
   static void writerEntry(void *arg) {
     static_cast<ShotArchive*>(arg)->writerLoop();
@@ -262,6 +277,13 @@ class ShotArchive {
         }
         xSemaphoreGive(mutex_);
       }
+#ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+      if (slots_[slot].synthetic) {
+        if (ok) testSaved_.fetch_add(1);
+        else testFailed_.fetch_add(1);
+        slots_[slot].synthetic = false;
+      }
+#endif
       slots_[slot].state=0;
       if(!ok)Serial.println("Shot archive: flash write failed");
     }
