@@ -44,3 +44,23 @@ The existing ESP32 sanitizer is the final authority on stored maximum values.
 Security: Existing HTTP settings APIs are unauthenticated on the local LAN.
 Avoid exposing the device outside a trusted network. HTTP editing is not
 intended for use during an active brew.
+
+## Nextion screen-field synchronization (no HMI changes)
+Checked the supplied `testing.hmi` file. Its existing settings page uses
+`settings.n4.val`, `settings.n3.val`, `settings.x3..x8.val`,
+`settings.n0..n2.val` and `settings.x0..x2.val` to display the 14
+global configuration values. The HMI already populates those fields when
+navigating into the settings screen.
+
+A web-originated change now sends both the global variable and its matching
+visible page-field assignment from the Arduino main loop. Nextion only accepts
+the page-local assignment while the settings page is active. On other pages,
+the global update is sufficient; the HMI's existing navigation handler will
+populate the fields when the settings page is opened.
+
+**Limitations:** There is no acknowledgment proving that Nextion applied a
+field update. Unsaved edits already typed on the Nextion settings page cannot
+be reliably detected by the ESP32, so a concurrent Nextion save may still
+overwrite a web change. Avoid editing settings simultaneously from both UIs;
+a full conflict-free protocol would require additional Nextion interaction.
+This change does not modify testing.hmi or the display firmware.
