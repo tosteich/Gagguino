@@ -24,11 +24,22 @@ private:
 public:
   void update() {
     int sensorVal = 0;
+    int railSamples = 0;
     for (int i = 0; i < 32; i++) {
-      sensorVal = sensorVal + analogRead(PRESSURE_PIN);
+      const int sample = analogRead(PRESSURE_PIN);
+      sensorVal += sample;
+      // A plausible mean can hide alternating 0/4095 readings. Reject
+      // sustained rail excursions even when their average looks normal.
+      if (sample <= MIN_VALID_ADC || sample >= MAX_VALID_ADC) {
+        ++railSamples;
+      }
     }
     currentSensorValue = sensorVal / 32;
-    valid = currentSensorValue > MIN_VALID_ADC && currentSensorValue < MAX_VALID_ADC;
+    // One to three isolated bad samples may be electrical noise.
+    // Four or more rails in a 32-sample block indicate unreliable data.
+    valid = railSamples < 4 &&
+            currentSensorValue > MIN_VALID_ADC &&
+            currentSensorValue < MAX_VALID_ADC;
   }
 
   bool isValid() const { return valid; }
