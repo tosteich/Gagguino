@@ -39,6 +39,40 @@ void updateSettingValueOnNex(int valueIndex)
    myNex.writeNum(settings[valueIndex].key, settings[valueIndex].value);
 }
 
+// Mapping verified against testing.hmi. These are visible numeric attributes
+// on the existing Nextion 'settings' page, not new/global variables.
+// When the page is active, a web change updates the field immediately;
+// when inactive, the HMI's existing page-navigation code copies the globals.
+static const char* const NEXTION_SETTINGS_FIELDS[] = {
+  "settings.n4.val",  // targetTemp
+  "settings.n3.val",  // steamTemp
+  "settings.x3.val",  // pidKp
+  "settings.x4.val",  // pidKi
+  "settings.x5.val",  // pidKd
+  "settings.x6.val",  // pumpKp
+  "settings.x7.val",  // pumpKi
+  "settings.x8.val",  // pumpKd
+  "settings.n0.val",  // preinfDur
+  "settings.x0.val",  // preinfPress
+  "settings.n1.val",  // holdDur
+  "settings.x1.val",  // holdPress
+  "settings.n2.val",  // declineDur
+  "settings.x2.val"   // declinePress
+};
+static_assert(sizeof(NEXTION_SETTINGS_FIELDS) / sizeof(NEXTION_SETTINGS_FIELDS[0])
+              == sizeof(settings) / sizeof(settings[0]),
+              "Nextion settings mapping must cover every saved setting");
+
+// Called from the main loop only, never from an AsyncWebServer callback.
+void updateWebSettingOnNex(int index) {
+  if (index < 0 || index >= (int)(sizeof(settings) / sizeof(settings[0]))) return;
+  updateSettingValueOnNex(index);
+  // Nextion local components are writable while their page is active.
+  // An inactive page can reject this command, but its globals have already
+  // been updated and the existing HMI navigation code fills its fields later.
+  myNex.writeNum(NEXTION_SETTINGS_FIELDS[index], settings[index].value);
+}
+
 void loadSettingsFromNex()
 {
   for(uint8_t i = 0; i < sizeof(settings)/sizeof(setting); ++i) {
