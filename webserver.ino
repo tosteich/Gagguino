@@ -273,6 +273,43 @@ void initWebServerControllers() {
     request->send(response);
   });
 
+#ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+  // USB BENCH ONLY. No request handler touches actuators or filesystem.
+  // A single pending job prevents unbounded queue growth.
+  server.on("/api/test-shot", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!request->hasParam("seconds")) {
+      request->send(400, "text/plain", "Missing seconds (5..120)");
+      return;
+    }
+    const String raw = request->getParam("seconds")->value();
+    if (raw.isEmpty() || raw.length() > 3) {
+      request->send(400, "text/plain", "Invalid duration");
+      return;
+    }
+    for (size_t i = 0; i < raw.length(); ++i) {
+      if (raw[i] < '0' || raw[i] > '9') {
+        request->send(400, "text/plain", "Invalid duration");
+        return;
+      }
+    }
+    const uint32_t seconds = (uint32_t)raw.toInt();
+    if (seconds < 5 || seconds > 120) {
+      request->send(400, "text/plain", "Duration must be 5..120 seconds");
+      return;
+    }
+    if (!shotArchive.available()) {
+      request->send(503, "text/plain", "Archive unavailable");
+      return;
+    }
+    uint32_t expected = 0;
+    if (!pendingShotTestMs.compare_exchange_strong(expected, seconds * 1000UL)) {
+      request->send(409, "text/plain", "Test request already pending");
+      return;
+    }
+    request->send(202, "text/plain", "Synthetic shot queued; refresh /api/shots shortly");
+  });
+#endif
+
   server.on("/targetTemp", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("temp")) {
       String str = request->getParam("temp")->value();
