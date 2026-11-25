@@ -12,3 +12,15 @@
 
 /* Persistent shot archive. */
 .archive-card{margin-top:18px}.shot-list{display:grid;gap:8px;margin-top:14px;max-height:340px;overflow:auto}.shot-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);background:var(--panel2);border-radius:11px;padding:10px 14px}.shot-row.selected{border-color:var(--coffee)}.shot-row small{display:block;color:var(--muted)}.shot-row .btn{min-width:90px}@media(max-width:680px){.shot-row{flex-wrap:wrap}.archive-card .chart-actions{width:100%}}
+
+/* Full Nextion parameter editor */
+.web-setting-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(112px,150px);align-items:center;gap:12px;margin:10px 0}
+.web-setting-row label{font-size:13px;color:var(--muted)}
+.web-setting-controls{display:flex;align-items:center;gap:7px;min-width:0}
+.web-setting-controls input{width:100%;min-width:0;padding:9px 10px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;color:var(--text);font:inherit}
+.web-setting-controls input:focus{outline:2px solid var(--coffee);outline-offset:1px}
+.web-setting-controls input:disabled{opacity:.6}
+.web-setting-controls span{min-width:28px;color:var(--muted);font-size:12px}
+#allSettingsForm .card h2{margin-bottom:12px}
+#allSettingsForm button{margin:5px 7px 5px 0}
+@media(max-width:550px){.web-setting-row{grid-template-columns:1fr;gap:4px}.web-setting-controls{max-width:200px}}
