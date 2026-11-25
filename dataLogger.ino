@@ -6,9 +6,14 @@ static char currDate[24];
 
 void updateCurrDate() {
   timeClient.update();
-  unsigned long timeNow = timeClient.getEpochTime();
-  struct tm *ptm = gmtime((time_t *)&timeNow);
-  sprintf(currDate, "%u_%u_%u.txt", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday);
+  const time_t timeNow = static_cast<time_t>(timeClient.getEpochTime());
+  struct tm date = {};
+  if (gmtime_r(&timeNow, &date) == nullptr) {
+    currDate[0] = '\0';
+    return;
+  }
+  snprintf(currDate, sizeof(currDate), "%04d_%02d_%02d.txt",
+           date.tm_year + 1900, date.tm_mon + 1, date.tm_mday);
 }
 
 typedef struct {
@@ -23,6 +28,8 @@ RTC_DATA_ATTR sensorReadings Readings[maxRecords];
 void updateLog() {
   timeClient.update();
   unsigned long timeNow = timeClient.getEpochTime();
+  // RTC-retained state can outlive the current firmware and may be invalid.
+  if (loggerCounter < 0 || loggerCounter >= maxRecords) loggerCounter = 0;
   Readings[loggerCounter].Temp = currentTemperature;
   Readings[loggerCounter].Press = currentPressure;
   Readings[loggerCounter].BoilPw = heatPower;
