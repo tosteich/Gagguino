@@ -112,6 +112,57 @@ class ShotArchive {
     wasFlowing_=flowing;
   }
 
+#ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+  // BENCH ONLY: synthesize one completed shot without touching the stopwatch,
+  // pump, heater, sensor values or any machine actuator. Called by loop().
+  // Flash writes still happen exclusively on the existing writer task.
+  bool generateTestShot(uint32_t durationMs) {
+    if (!ready_ || durationMs < 5000 || durationMs > 120000 ||
+        wasFlowing_ || capturing_ >= 0) return false;
+    int slot = -1;
+    for (int i = 0; i < 2; ++i) {
+      if (slots_[i].state == 0) { slot = i; break; }
+    }
+    if (slot < 0) return false;
+    Buffer &buf = slots_[slot];
+    buf.state = 1;
+    buf.header = {MAGIC, 1, 0, durationMs, 0};
+    const uint16_t count = (uint16_t)min(durationMs / SAMPLE_INTERVAL_MS,
+                                          (uint32_t)MAX_SAMPLES);
+    for (uint16_t i = 0; i < count; ++i) {
+      const float t = i * 0.2f;
+      const float progress = t / (durationMs / 1000.0f);
+      const float pressure = progress < 0.2f ? 1.5f * progress / 0.2f :
+          progress < 0.45f ? 1.5f + 7.5f * (progress - 0.2f) / 0.25f :
+          progress < 0.8f ? 9.0f : 9.0f * (1.0f - progress) / 0.2f;
+      const float temp = 93.0f + 0.5f * sinf(t / 4.0f);
+      buf.samples[i] = {
+        i,
+        (int16_t)lroundf(temp * 10.0f),
+        (uint16_t)constrain((int)lroundf(pressure * 100.0f), 0, 1200),
+        (uint8_t)constrain((int)lroundf(45.0f + 15.0f * sinf(t / 5.0f)), 0, 100),
+        (uint8_t)70
+      };
+    }
+    buf.header.count = count;
+    if (durationMs < MIN_DURATION_MS) {
+      buf.state = 0;
+      Serial.printf("SHOT_TEST: rejected %lu ms (< 15000 ms)\n",
+                    (unsigned long)durationMs);
+      return true;
+    }
+    const uint8_t index = (uint8_t)slot;
+    buf.state = 2;
+    if (xQueueSend(pending_, &index, 0) != pdTRUE) {
+      buf.state = 0;
+      return false;
+    }
+    Serial.printf("SHOT_TEST: queued %lu ms, %u samples\n",
+                  (unsigned long)durationMs, count);
+    return true;
+  }
+#endif
+
   bool available() const { return ready_; }
 
   // Web handlers only: skip if the background writer is using LittleFS.
