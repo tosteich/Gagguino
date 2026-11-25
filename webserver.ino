@@ -25,10 +25,13 @@ bool enqueueBoilerWebCommand(uint8_t index, int value) {
 }
 
 void applyPendingWebSettings() {
-  if (!boilerWebCommandQueue) return;
+  publishedFlowActive.store(stopWatch.getIsFlow());
+  applyPendingFullWebSettings();
+  if (!boilerWebCommandQueue || stopWatch.getIsFlow()) return;
   BoilerWebCommand command;
   // Bound loop work even under a flood of requests.
   for (int i = 0; i < 8 && xQueueReceive(boilerWebCommandQueue, &command, 0) == pdTRUE; ++i) {
+    if (fullWebSettingsQueue && uxQueueMessagesWaiting(fullWebSettingsQueue) > 0) break;
     switch (command.index) {
       case TARGET_TEMP: changeTargetTemp((byte)command.value); break;
       case PID_KP: changePidKp(command.value); break;
@@ -37,6 +40,70 @@ void applyPendingWebSettings() {
       default: break;
     }
   }
+}
+
+
+// Web settings snapshot (14 entries) and one complete configuration command.
+// HTTP callbacks never read live 'settings' or touch Preferences/PID/Nextion.
+constexpr uint8_t WEB_SETTING_COUNT = 14;
+struct WebSettingsCommand { int values[WEB_SETTING_COUNT]; };
+static QueueHandle_t fullWebSettingsQueue = nullptr;
+static std::atomic<int> publishedWebSettings[WEB_SETTING_COUNT];
+static std::atomic<bool> publishedFlowActive{false};
+static std::atomic<uint32_t> webSettingsRevision{0};
+
+void publishWebSettings() {
+  for (uint8_t i = 0; i < WEB_SETTING_COUNT; ++i)
+    publishedWebSettings[i].store(settings[i].value);
+  webSettingsRevision.fetch_add(1);
+}
+
+void initFullWebSettingsQueue() {
+  fullWebSettingsQueue = xQueueCreate(1, sizeof(WebSettingsCommand));
+  publishWebSettings();
+}
+
+static bool parseWebSetting(const String &raw, uint8_t index, int &value) {
+  if (raw.isEmpty() || raw.length() > 12) return false;
+  char* end = nullptr;
+  const double n = strtod(raw.c_str(), &end);
+  if (end == raw.c_str() || *end != '\\0' || !isfinite(n)) return false;
+  const bool decimal = index == PID_KP || index == PID_KI || index == PID_KD ||
+      index == PUMP_KP || index == PUMP_KI || index == PUMP_KD ||
+      index == PREINFUSE_PRESSURE || index == HOLD_PRESSURE || index == DECLINE_PRESSURE;
+  const double scaled = n * (decimal ? 10.0 : 1.0);
+  if (scaled < 0 || scaled > 100000 || fabs(scaled - round(scaled)) > 0.00001) return false;
+  const int v = (int)round(scaled);
+  if (sanitizeBoilerSetting(index, v) != v) return false;
+  // Explicit minimum temperatures to avoid accidental disabling or overheating.
+  if (index == TARGET_TEMP && (v < 20 || v > 105)) return false;
+  if (index == STEAM_TEMP && (v < 100 || v > 144)) return false;
+  value = v;
+  return true;
+}
+
+void applyPendingFullWebSettings() {
+  if (!fullWebSettingsQueue || stopWatch.getIsFlow()) return;
+  WebSettingsCommand command;
+  if (xQueueReceive(fullWebSettingsQueue, &command, 0) != pdTRUE) return;
+  // Serializes configuration changes with the main loop and Nextion.
+  bool changedBoiler = false, changedPump = false, changedProfile = false;
+  preferences.begin("gaggia-prefs", false);
+  for (uint8_t i = 0; i < WEB_SETTING_COUNT; ++i) {
+    if (settings[i].value == command.values[i]) continue;
+    settings[i].value = command.values[i];
+    preferences.putInt(settings[i].key, settings[i].value);
+    updateSettingValueOnNex(i);
+    if (i == TARGET_TEMP || i == STEAM_TEMP || i == PID_KP || i == PID_KI || i == PID_KD)
+      changedBoiler = true;
+    if (i == PUMP_KP || i == PUMP_KI || i == PUMP_KD) changedPump = true;
+    if (i >= PREINFUSE_DURATION) changedProfile = true;
+  }
+  preferences.end();
+  if (changedBoiler) updateBoilerPidSettings();
+  if (changedPump) updatePumpPidSettings();
+  if (changedProfile) initDeclineMatrix();
+  publishWebSettings();
 }
 
 // Returns a nonnegative fixed-point PID gain (tenths), or false.
@@ -362,6 +429,55 @@ void initWebServerControllers() {
     request->send(200, "application/json", json);
   });
 #endif
+
+
+  server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
+    static const char* keys[WEB_SETTING_COUNT] = {
+      "targetTemp", "steamTemp", "pidKp", "pidKi", "pidKd",
+      "pumpKp", "pumpKi", "pumpKd", "preinfDur", "preinfPress",
+      "holdDur", "holdPress", "declineDur", "declinePress"
+    };
+    String output = "{";
+    for (uint8_t i = 0; i < WEB_SETTING_COUNT; ++i) {
+      if (i) output += ",";
+      output += "\\\"" + String(keys[i]) + "\\\":" +
+          String(publishedWebSettings[i].load() /
+              ((i == PID_KP || i == PID_KI || i == PID_KD ||
+                i == PUMP_KP || i == PUMP_KI || i == PUMP_KD ||
+                i == PREINFUSE_PRESSURE || i == HOLD_PRESSURE || i == DECLINE_PRESSURE)
+                  ? 10.0f : 1.0f), 1);
+    }
+    output += ",\\\"revision\\\":" + String(webSettingsRevision.load()) + "}";
+    request->send(200, "application/json", output);
+  });
+  server.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (publishedFlowActive.load()) {
+      request->send(409, "text/plain", "Cannot change settings during shot");
+      return;
+    }
+    if (!fullWebSettingsQueue) {
+      request->send(503, "text/plain", "Settings queue unavailable");
+      return;
+    }
+    static const char* keys[WEB_SETTING_COUNT] = {
+      "targetTemp", "steamTemp", "pidKp", "pidKi", "pidKd",
+      "pumpKp", "pumpKi", "pumpKd", "preinfDur", "preinfPress",
+      "holdDur", "holdPress", "declineDur", "declinePress"
+    };
+    WebSettingsCommand command{};
+    for (uint8_t i = 0; i < WEB_SETTING_COUNT; ++i) {
+      if (!request->hasParam(keys[i], true) ||
+          !parseWebSetting(request->getParam(keys[i], true)->value(), i, command.values[i])) {
+        request->send(400, "text/plain", String("Invalid setting: ") + keys[i]);
+        return;
+      }
+    }
+    if (xQueueSend(fullWebSettingsQueue, &command, 0) != pdTRUE) {
+      request->send(409, "text/plain", "Settings update already pending");
+      return;
+    }
+    request->send(202, "text/plain", "Queued; reload /api/settings to confirm");
+  });
 
   server.on("/targetTemp", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("temp")) {
