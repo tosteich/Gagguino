@@ -9,3 +9,6 @@
 .chart-tooltip[hidden]{display:none!important}
 .chart-wrap canvas{touch-action:pan-y}
 .btn.freeze-active{border-color:#e5a36e;color:#e5a36e;background:#3b302a}
+
+/* Persistent shot archive. */
+.archive-card{margin-top:18px}.shot-list{display:grid;gap:8px;margin-top:14px;max-height:340px;overflow:auto}.shot-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);background:var(--panel2);border-radius:11px;padding:10px 14px}.shot-row.selected{border-color:var(--coffee)}.shot-row small{display:block;color:var(--muted)}.shot-row .btn{min-width:90px}@media(max-width:680px){.shot-row{flex-wrap:wrap}.archive-card .chart-actions{width:100%}}
