@@ -54,3 +54,26 @@ uint8 heatPercent, uint8 pumpPercent`.
 - LittleFS can block an asynchronous web handler briefly while reading.
   File operations never occur in the control loop, but a performance
   measurement on the actual board remains necessary.
+
+## Synthetic archive test generator (USB bench only)
+- Set `#define GAGGUINO_SHOT_ARCHIVE_TEST` in `BenchTestConfig.h` (it is **disabled by default**).
+- Compile/upload firmware to an **isolated, USB-powered ESP32**, with no pump, heater,
+  relay, dimmer or mains-connected circuitry attached.
+- After LittleFS mounts and `/api/shots` returns `[]`, open
+  `GET /api/test-shot?seconds=10` to exercise rejection below 15 seconds.
+  Then verify that `/api/shots` remains `[]`.
+- Open `GET /api/test-shot?seconds=20`. HTTP 202 means **queued**, not saved.
+  After the low-priority writer finishes, `/api/shots` should contain one
+  entry with `durationMs:20000` and `samples:100`; open the entry in the
+  **Графики** tab or download CSV.
+- The generator synthesizes 5 Hz measurements of temperature, pressure,
+  heater and pump *values*. It does NOT change heater or pump control signals,
+  interact with the stopwatch or simulate physical GPIO button presses.
+- Repeat for 60/61 entries and reboot to inspect retention. A new filesystem
+  upload can erase the archive; normal firmware-only upload does not intentionally
+  overwrite LittleFS with an unchanged partition layout.
+- The request is processed by the main loop, never by the AsyncWebServer
+  callback; the existing background writer commits the binary file.
+- Disable the flag before connecting the firmware to installed coffee-machine
+  hardware. The endpoint is absent entirely when disabled.
+- No real hardware compilation or bench run has been performed yet.
