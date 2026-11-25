@@ -205,6 +205,9 @@ void initWebFiles() {
     Serial.println("LittleFS not mounted; serving legacy embedded page");
     return;
   }
+#ifdef GAGGUINO_USB_WEB_UPDATE
+  UsbWebAssetUpdater::recover();
+#endif
   darkWebFilesReady = LittleFS.exists("/index.html") &&
                       LittleFS.exists("/css/style.css") &&
                       LittleFS.exists("/js/app.js");
