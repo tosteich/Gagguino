@@ -302,7 +302,7 @@
     for(const s of selectedArchive){
       lines.push([s.t.toFixed(1),s.temp.toFixed(1),s.press.toFixed(2),s.heat,s.pump].join(","));
     }
-    const url=URL.createObjectURL(new Blob([lines.join("\\n")+"\\n"],{type:"text/csv;charset=utf-8"}));
+    const url=URL.createObjectURL(new Blob([lines.join("\n")+"\n"],{type:"text/csv;charset=utf-8"}));
     const anchor=document.createElement("a");
     anchor.href=url;anchor.download="gagguino-shot-"+selectedArchiveId+".csv";
     document.body.appendChild(anchor);anchor.click();anchor.remove();
