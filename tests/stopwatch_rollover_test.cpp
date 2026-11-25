@@ -42,6 +42,11 @@ int main() {
   shot.setIsFlow(false);
   shot.setFlowJustPressed(true);
   shot.run(ws, nex);
+  // UI currentTime must freeze with StopWatch when the button is released.
+  assert(shot.getTimerTime() == 150u);
+  fakeMillis = 5000u;
+  shot.run(ws, nex);
+  assert(shot.getTimerTime() == 150u);
   for (int i = 0; i < 45; ++i) shot.run(ws, nex);
   assert(shot.getTimerTime() == 0u);
   shot.setIsFlow(true);

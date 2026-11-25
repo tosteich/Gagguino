@@ -287,7 +287,9 @@ void updatePumpPower()
 void updateUi() {
   if (displayTimer.ready()) {
     updateGraphsInfo();
-    currTimeInSec = (millis() - stopWatch.getResetTime()) / 1000;
+    // Display the actual shot duration, not elapsed wall time since its start.
+    // StopWatch freezes on release and clears after the post-shot display window.
+    currTimeInSec = stopWatch.getTimerTime() / 1000;
     updateInfoToClients();
     sendInfoToDisplay();
   }
