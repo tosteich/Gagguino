@@ -2,3 +2,10 @@
 
 /* Demo mode: local browser simulation only. */
 .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}.demo-badge{background:#754414;color:#ffdeb0;border:1px solid #b77737;border-radius:8px;padding:7px 11px;font-size:12px;font-weight:800;letter-spacing:.45px}.demo-notice{background:#322718;border:1px solid #8c6237;color:#ffe0ae;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-weight:600}.demo-badge[hidden],.demo-notice[hidden]{display:none!important}.btn.demo-active{background:#795025;border-color:#bd8b4f;color:#ffe0ae}.btn:disabled,input:disabled{opacity:.45;cursor:not-allowed}@media(max-width:680px){.topbar{align-items:flex-start;flex-wrap:wrap}.header-actions{width:100%;justify-content:space-between}.demo-badge{font-size:10px}.status-badge{font-size:12px}}
+
+/* Chart interaction and frozen snapshot */
+.chart-actions{display:flex;gap:8px;flex-wrap:wrap}
+.chart-tooltip{position:absolute;z-index:5;pointer-events:none;min-width:140px;background:#101722f2;border:1px solid #516174;border-radius:10px;padding:9px 11px;box-shadow:0 8px 28px #0008;color:#e8eef6;font-size:12px;line-height:1.7;white-space:nowrap}
+.chart-tooltip[hidden]{display:none!important}
+.chart-wrap canvas{touch-action:pan-y}
+.btn.freeze-active{border-color:#e5a36e;color:#e5a36e;background:#3b302a}
