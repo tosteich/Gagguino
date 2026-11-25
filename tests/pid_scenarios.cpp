@@ -16,11 +16,23 @@ int main() {
     assert(output >= 0 && output <= 100);
   }
 
+  // A direct setSetPoint() deliberately preserves accumulated integral.
+  // This is used by the pump while its profile moves through pressure stages.
   boiler.setSetPoint(70.0f);
-  const int afterSetpointDrop = boiler.getResult(90.0f);
-  assert(afterSetpointDrop >= 0 && afterSetpointDrop <= 100);
-  // Note: currently nonzero due to retained integral after saturation.
-  // Document behavior rather than imposing an unverified heater policy.
+  const int afterSetpointDropWithoutReset = boiler.getResult(90.0f);
+  assert(afterSetpointDropWithoutReset >= 0 && afterSetpointDropWithoutReset <= 100);
+
+  // The application resets boiler PID before updating its setpoint
+  // (web/Nextion settings and brew/steam transitions). Reproduce that
+  // sequence explicitly: old integral must never cause heating above target.
+  boiler.resetState();
+  boiler.setSetPoint(70.0f);
+  const int afterSetpointDropWithReset = boiler.getResult(90.0f);
+  assert(afterSetpointDropWithReset == 0);
+
+  // Verify new target works again on a subsequent valid low measurement.
+  const int belowNewTarget = boiler.getResult(65.0f);
+  assert(belowNewTarget > 0 && belowNewTarget <= 100);
 
   GaggiaPid pump(20);
   pump.setupPid(0.0f, 0.0f, 0.4f, 90.0f);
@@ -43,8 +55,10 @@ int main() {
   assert(afterInvalidSample >= 0 && afterInvalidSample <= 100);
 
   std::cout << "PID sequence scenarios passed\n";
-  std::cout << "Boiler output after setpoint drop: "
-            << afterSetpointDrop << "/100\n";
+  std::cout << "Boiler output after direct setpoint drop without reset: "
+            << afterSetpointDropWithoutReset << "/100\n";
+  std::cout << "Boiler output after application-style PID reset: "
+            << afterSetpointDropWithReset << "/100\n";
   std::cout << "Pump output pulse for +1 measurement unit: "
             << noiseRise << "/100\n";
 }
