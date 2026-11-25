@@ -16,6 +16,8 @@ int main() {
   derivative.setupPid(0, 0, 1, 100);
   assert(derivative.getResult(100) == 100);
   assert(derivative.getResult(101) == 5);
+  derivative.resetState();
+  assert(derivative.getResult(101) == 0); // No D spike after safety reset.
 
   GaggiaPid saturated(20);
   saturated.setupPid(3, 5, 0, 100);
