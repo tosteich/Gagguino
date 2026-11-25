@@ -29,6 +29,7 @@ int main() {
   fakeMillis = UINT32_MAX - 100u;
   shot.run(ws, nex);
   assert(shot.getTimerTime() == 0);
+  assert(shot.getResetTime() == UINT32_MAX - 100u);
   shot.run(ws, nex);  // same time, must not restart shot
   fakeMillis = UINT32_MAX - 50u;
   shot.run(ws, nex);
@@ -36,6 +37,8 @@ int main() {
   fakeMillis = 49u; // 150 ms across millis() rollover
   shot.run(ws, nex);
   assert(shot.getTimerTime() == 150u);
+  assert(shot.getResetTime() == UINT32_MAX - 100u);
+  // The flowJustPressed UI handshake must not shift the shot clock.
   shot.setIsFlow(false);
   shot.setFlowJustPressed(true);
   shot.run(ws, nex);
@@ -45,6 +48,7 @@ int main() {
   fakeMillis = 100u;
   shot.run(ws, nex);
   assert(shot.getTimerTime() == 0u);  // next shot starts cleanly
+  assert(shot.getResetTime() == 100u);
   fakeMillis = 300u;
   shot.run(ws, nex);
   assert(shot.getTimerTime() == 200u);

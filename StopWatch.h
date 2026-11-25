@@ -33,6 +33,7 @@ public:
       const uint32_t currTime = millis();
       if (!started) {
         startTime = currTime;
+        resetTime = currTime; // The clock begins at shot start, not at a later UI update.
         started = true;
         memoryTimer = 0;
       }
@@ -46,7 +47,6 @@ public:
           setFlowJustPressed(false);
           myNex.writeNum("flowJustPressed", false);
         }
-        resetTime = currTime;
       }
     } else {
       if (memoryTimer == 0) {
