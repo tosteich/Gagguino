@@ -134,7 +134,25 @@ std::atomic<float> publishedCurrentTemperature{-50.0f};
 std::atomic<float> publishedCurrentPressure{0.0f};
 std::atomic<bool> pendingWebReboot{false};
 
+// Diagnostic only: a long loop gap can delay heater safety decisions.
+// It cannot replace an independent hardware thermal cutoff.
+uint32_t previousLoopStartedMs = 0;
+bool hasPreviousLoopStart = false;
+uint32_t lastLoopGapWarningMs = 0;
+
 void loop() {
+  const uint32_t loopStartedMs = millis();
+  if (hasPreviousLoopStart) {
+    const uint32_t gapMs = (uint32_t)(loopStartedMs - previousLoopStartedMs);
+    // Report a long scheduling/blocking delay, no more than once per 10s.
+    if (gapMs >= 1000 && (uint32_t)(loopStartedMs - lastLoopGapWarningMs) >= 10000) {
+      Serial.printf("WARNING: main loop gap %lu ms; heater supervision delayed\n",
+                    (unsigned long)gapMs);
+      lastLoopGapWarningMs = loopStartedMs;
+    }
+  }
+  hasPreviousLoopStart = true;
+  previousLoopStartedMs = loopStartedMs;
   if (pendingWebReboot.exchange(false)) {
     // WebSocket callbacks must not restart the MCU while other tasks
     // may be changing heater / pump outputs. Inhibit both before reboot.
