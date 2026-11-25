@@ -24,25 +24,6 @@ bool enqueueBoilerWebCommand(uint8_t index, int value) {
   return xQueueSend(boilerWebCommandQueue, &command, 0) == pdTRUE;
 }
 
-void applyPendingWebSettings() {
-  publishedFlowActive.store(stopWatch.getIsFlow());
-  applyPendingFullWebSettings();
-  if (!boilerWebCommandQueue || stopWatch.getIsFlow()) return;
-  BoilerWebCommand command;
-  // Bound loop work even under a flood of requests.
-  for (int i = 0; i < 8 && xQueueReceive(boilerWebCommandQueue, &command, 0) == pdTRUE; ++i) {
-    if (fullWebSettingsQueue && uxQueueMessagesWaiting(fullWebSettingsQueue) > 0) break;
-    switch (command.index) {
-      case TARGET_TEMP: changeTargetTemp((byte)command.value); break;
-      case PID_KP: changePidKp(command.value); break;
-      case PID_KI: changePidKi(command.value); break;
-      case PID_KD: changePidKd(command.value); break;
-      default: break;
-    }
-  }
-}
-
-
 // Web settings snapshot (14 entries) and one complete configuration command.
 // HTTP callbacks never read live 'settings' or touch Preferences/PID/Nextion.
 constexpr uint8_t WEB_SETTING_COUNT = 14;
@@ -67,7 +48,7 @@ static bool parseWebSetting(const String &raw, uint8_t index, int &value) {
   if (raw.isEmpty() || raw.length() > 12) return false;
   char* end = nullptr;
   const double n = strtod(raw.c_str(), &end);
-  if (end == raw.c_str() || *end != '\\0' || !isfinite(n)) return false;
+  if (end == raw.c_str() || *end != '\0' || !isfinite(n)) return false;
   const bool decimal = index == PID_KP || index == PID_KI || index == PID_KD ||
       index == PUMP_KP || index == PUMP_KI || index == PUMP_KD ||
       index == PREINFUSE_PRESSURE || index == HOLD_PRESSURE || index == DECLINE_PRESSURE;
@@ -104,6 +85,23 @@ void applyPendingFullWebSettings() {
   if (changedPump) updatePumpPidSettings();
   if (changedProfile) initDeclineMatrix();
   publishWebSettings();
+}
+
+void applyPendingWebSettings() {
+  publishedFlowActive.store(stopWatch.getIsFlow());
+  applyPendingFullWebSettings();
+  if (!boilerWebCommandQueue || stopWatch.getIsFlow()) return;
+  BoilerWebCommand command;
+  for (int i = 0; i < 8 && xQueueReceive(boilerWebCommandQueue, &command, 0) == pdTRUE; ++i) {
+    switch (command.index) {
+      case TARGET_TEMP: changeTargetTemp((byte)command.value); break;
+      case PID_KP: changePidKp(command.value); break;
+      case PID_KI: changePidKi(command.value); break;
+      case PID_KD: changePidKd(command.value); break;
+      default: break;
+    }
+    publishWebSettings();
+  }
 }
 
 // Returns a nonnegative fixed-point PID gain (tenths), or false.
