@@ -126,6 +126,7 @@ std::atomic<int> publishedBoilerKd{0};
 bool sensorsReadyThisLoop = false;
 // Prevent stale PID state being reused when qualified LMT01 data returns.
 bool boilerPidSensorWasFresh = false;
+bool pumpPressureWasValid = false;
 
 void loop() {
   // Apply queued HTTP updates on the same task as PID calculations.
@@ -189,31 +190,41 @@ void updateVariablesFromSensorsData() {
 
 void updatePumpPower()
 {
-    if (stopWatch.getIsFlow()) 
-    {  
-      if (isBrewEnabled) 
-      {
-        if (sensorsReadyThisLoop)
-        {
-          if(isManual) 
-          {
-            pumpPid.setSetPoint(manualPressure);  
-          } 
-          else 
-          {
-            managePumpPidSetPoint(stopWatch.getTimerTime());            
-          }
-        }
-        if (pumpPidTimer.ready())
-        {
-           pumpPower = pumpPid.getResult(manometer.getPressure() * 10);            
-        }
-      } 
-      else if (pumpPower != 100)
-      {
-        pumpPower = 100;
-      } 
+  // Preserve legacy unregulated pump behavior outside a PID-controlled shot.
+  if (!stopWatch.getIsFlow() || !isBrewEnabled) {
+    pumpPulsesEnabled = true;
+    if (pumpPressureWasValid) {
+      pumpPid.resetState();
+      pumpPressureWasValid = false;
     }
+    if (stopWatch.getIsFlow() && pumpPower != 100) {
+      pumpPower = 100;
+    }
+    return;
+  }
+
+  if (sensorsReadyThisLoop) {
+    if (isManual) pumpPid.setSetPoint(manualPressure);
+    else managePumpPidSetPoint(stopWatch.getTimerTime());
+  }
+
+  if (!pumpPidTimer.ready()) return;
+
+  // Every control-cycle sample must be checked before PID integration.
+  // A value of 0% alone does not disable the phase gate!
+  const float pressure = manometer.getPressure();
+  if (!manometer.isValid()) {
+    pumpPulsesEnabled = false;
+    pumpPower = 0;
+    pumpPid.resetState();
+    pumpPressureWasValid = false;
+    return;
+  }
+
+  if (!pumpPressureWasValid) pumpPid.resetState();
+  pumpPressureWasValid = true;
+  pumpPower = pumpPid.getResult(pressure * 10.0f);
+  pumpPulsesEnabled = true;
 }
 
 void updateUi() {

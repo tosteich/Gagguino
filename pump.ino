@@ -6,6 +6,9 @@ static constexpr uint32_t PUMP_GATE_PULSE_US = 40;
 hw_timer_t* pumpTimer = nullptr;
 portMUX_TYPE pumpTimerMux = portMUX_INITIALIZER_UNLOCKED;
 volatile bool pumpPulsePending = false;
+// A 0% phase request still generates a late triac pulse. This separate
+// inhibit flag prevents firing when a pressure-sensor rail fault is found.
+volatile bool pumpPulsesEnabled = true;
 
 void ARDUINO_ISR_ATTR onPumpTimer() {
   bool fire = false;
@@ -14,7 +17,7 @@ void ARDUINO_ISR_ATTR onPumpTimer() {
   pumpPulsePending = false; // One pulse at most for each zero-crossing event.
   portEXIT_CRITICAL_ISR(&pumpTimerMux);
 
-  if (fire) {
+  if (fire && pumpPulsesEnabled) {
     digitalWrite(PUMP_DIMMER_M1_PIN, HIGH);
     delayMicroseconds(PUMP_GATE_PULSE_US);
     digitalWrite(PUMP_DIMMER_M1_PIN, LOW);
@@ -29,7 +32,7 @@ void ARDUINO_ISR_ATTR handleInterrupt() {
   const uint32_t delayTicks = (uint32_t)(49000 - 478.5 * requestedPower);
 
   portENTER_CRITICAL_ISR(&pumpTimerMux);
-  pumpPulsePending = true;
+  pumpPulsePending = pumpPulsesEnabled;
   timerWrite(pumpTimer, 0);
   // No autoreload: loss of zero-cross signal stops further gate pulses.
   timerAlarm(pumpTimer, delayTicks, false, 0);
