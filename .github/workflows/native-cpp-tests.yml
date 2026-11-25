@@ -1,0 +1,16 @@
+name: Native C++ regression tests
+
+on:
+  push:
+    branches:
+      - fix/esp32-timer-and-heater-safety
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  native-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run all native tests
+        run: bash tests/run_native_tests.sh
