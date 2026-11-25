@@ -63,6 +63,10 @@ public:
   int getResult(float input) {
     if (periodSec <= 0.0f || !isfinite(input) ||
         !isfinite(setPoint) || !isfinite(Kp) || !isfinite(Ki) || !isfinite(Kd)) {
+      // Do not bridge an invalid-sample gap when estimating derivative.
+      // Retain the integral contribution; only the D measurement history is stale.
+      hasLastPoint = false;
+      filteredDerivative = 0.0f;
       return 0;
     }
 
