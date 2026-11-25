@@ -129,6 +129,14 @@ bool sensorsReadyThisLoop = false;
 // Prevent stale PID state being reused when qualified LMT01 data returns.
 bool boilerPidSensorWasFresh = false;
 bool pumpPressureWasValid = false;
+// Loop-owned gate state: avoid entering a FreeRTOS critical section on every
+// 30-40 us loop iteration if the requested inhibit state has not changed.
+bool pumpGateEnabledInLoop = true;
+void updatePumpGateEnabled(bool enabled) {
+  if (pumpGateEnabledInLoop == enabled) return;
+  setPumpPulsesEnabled(enabled);
+  pumpGateEnabledInLoop = enabled;
+}
 // AsyncTCP consumers use published snapshots, not loop-owned mutable state.
 // Keep -50C as the original unqualified LMT01 web display value.
 std::atomic<float> publishedCurrentTemperature{-50.0f};
@@ -160,7 +168,7 @@ void loop() {
   if (pendingWebReboot.exchange(false)) {
     // WebSocket callbacks must not restart the MCU while other tasks
     // may be changing heater / pump outputs. Inhibit both before reboot.
-    setPumpPulsesEnabled(false);
+    updatePumpGateEnabled(false);
     pumpPower = 0;
     boiler.setHeatPower(0);
     ESP.restart();
@@ -240,7 +248,7 @@ void updatePumpPower()
 {
   // Preserve legacy unregulated pump behavior outside a PID-controlled shot.
   if (!stopWatch.getIsFlow() || !isBrewEnabled) {
-    setPumpPulsesEnabled(true);
+    updatePumpGateEnabled(true);
     if (pumpPressureWasValid) {
       pumpPid.resetState();
       pumpPressureWasValid = false;
@@ -262,7 +270,7 @@ void updatePumpPower()
   // A value of 0% alone does not disable the phase gate!
   const float pressure = manometer.getPressure();
   if (!manometer.isValid()) {
-    setPumpPulsesEnabled(false);
+    updatePumpGateEnabled(false);
     pumpPower = 0;
     pumpPid.resetState();
     pumpPressureWasValid = false;
@@ -272,7 +280,7 @@ void updatePumpPower()
   if (!pumpPressureWasValid) pumpPid.resetState();
   pumpPressureWasValid = true;
   pumpPower = pumpPid.getResult(pressure * 10.0f);
-  setPumpPulsesEnabled(true);
+  updatePumpGateEnabled(true);
 }
 
 void updateUi() {
