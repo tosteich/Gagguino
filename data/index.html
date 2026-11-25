@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#10141c">
+  <title>Gagguino — Espresso Monitor</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script defer src="/js/app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#dashboard"><span class="brand-icon">☕</span><span><strong>Gagguino</strong><small>ESPRESSO MONITOR</small></span></a>
+      <nav aria-label="Разделы">
+        <a class="nav-link active" href="#dashboard" data-page="dashboard">Обзор</a>
+        <a class="nav-link" href="#graphs" data-page="graphs">Графики</a>
+        <a class="nav-link" href="#settings" data-page="settings">Настройки</a>
+      </nav>
+      <div class="sidebar-foot"><span id="connectionDot" class="dot"></span><span id="connectionLabel">Подключение…</span><small>Локальный веб-интерфейс ESP32</small></div>
+    </aside>
+    <main class="content">
+      <header class="topbar">
+        <div><p class="eyebrow">GAGGIA ESPRESSO CONTROLLER</p><h1 id="pageTitle">Обзор</h1></div>
+        <span id="connectionBadge" class="status-badge">Нет соединения</span>
+      </header>
+
+      <section id="page-dashboard" class="page">
+        <div class="metrics">
+          <article class="card metric"><span class="metric-label">Температура бойлера</span><div class="metric-value temperature"><span id="temperature">—</span><small>°C</small></div><span class="metric-sub">Цель <b id="targetTemperature">—</b> °C</span></article>
+          <article class="card metric"><span class="metric-label">Давление</span><div class="metric-value pressure"><span id="pressure">—</span><small>бар</small></div><span class="metric-sub">Текущее измерение</span></article>
+          <article class="card metric"><span class="metric-label">Время currentTime</span><div class="metric-value"><span id="currentTime">00:00</span></div><span class="metric-sub">С запуска / приготовления / завершения</span></article>
+          <article class="card metric"><span class="metric-label">Нагрев</span><div class="metric-value"><span id="heatPower">—</span><small>%</small></div><div class="power-track"><div id="heatBar" class="power-fill"></div></div></article>
+        </div>
+        <article class="card chart-card">
+          <div class="section-head"><div><h2>Живые данные</h2><p>Температура и давление в реальном времени</p></div><div class="legend"><span><i class="legend-temp"></i>°C</span><span><i class="legend-pressure"></i>бар</span></div></div>
+          <div class="chart-wrap"><canvas id="liveChart" role="img" aria-label="График температуры и давления"></canvas></div>
+          <p class="hint">Последние 60 измерений. График начинается заново при обновлении страницы.</p>
+        </article>
+        <div class="info-grid">
+          <article class="card"><h2>Подключение</h2><p id="connectionText" class="muted">Ожидание данных WebSocket…</p></article>
+          <article class="card"><h2>Управление</h2><p class="muted">Этот интерфейс не управляет помпой и режимом пара. Они остаются под управлением кофемашины.</p></article>
+        </div>
+      </section>
+
+      <section id="page-graphs" class="page" hidden>
+        <article class="card chart-card"><div class="section-head"><div><h2>Графики</h2><p>Последние 60 показаний</p></div><button type="button" class="btn secondary" id="clearChart">Очистить график</button></div>
+          <div class="chart-wrap tall"><canvas id="detailChart" role="img" aria-label="Расширенный график температуры и давления"></canvas></div>
+        </article>
+        <article class="card"><h2>Архив</h2><p class="muted">Архив записей доступен отдельно, если настроен в локальной сети. Встроенная история на ESP32 пока не реализована.</p></article>
+      </section>
+
+      <section id="page-settings" class="page" hidden>
+        <div class="settings-grid">
+          <article class="card"><h2>Температура</h2><p class="muted">Целевая температура бойлера</p>
+            <form id="temperatureForm" class="field-form"><label for="tempInput">Температура, °C</label><input id="tempInput" type="number" min="20" max="105" step="1" required><button class="btn primary" type="submit">Применить</button></form>
+          </article>
+          <article class="card"><h2>PID бойлера</h2><p class="muted">Менять коэффициенты только осознанно. Текущие значения поступают с ESP32.</p>
+            <form id="pidForm" class="pid-fields"><label for="kpInput">Kp</label><input id="kpInput" type="number" min="0" max="100" step="0.1" required>
+              <label for="kiInput">Ki</label><input id="kiInput" type="number" min="0" max="100" step="0.1" required>
+              <label for="kdInput">Kd</label><input id="kdInput" type="number" min="0" max="100" step="0.1" required>
+              <button class="btn primary" type="submit">Сохранить PID</button></form>
+          </article>
+          <article class="card"><h2>Система</h2><p class="muted">Перезапуск ESP32 закроет текущее WebSocket-соединение.</p><button class="btn danger" type="button" id="rebootButton">Перезагрузить ESP32</button></article>
+          <article class="card"><h2>Статус операции</h2><p id="formStatus" class="muted" role="status" aria-live="polite">Изменения ещё не отправлялись.</p></article>
+        </div>
+      </section>
+      <footer>Gagguino • Автономный интерфейс на LittleFS • Данные через WebSocket</footer>
+    </main>
+  </div>
+</body>
+</html>
