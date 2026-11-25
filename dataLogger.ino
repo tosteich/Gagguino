@@ -1,3 +1,4 @@
+#include "LogFormatter.h"
 #define maxRecords 30
 
 RTC_DATA_ATTR int loggerCounter = 0;
@@ -16,13 +17,6 @@ void updateCurrDate() {
            date.tm_year + 1900, date.tm_mon + 1, date.tm_mday);
 }
 
-typedef struct {
-  float Temp;
-  float Press;
-  int BoilPw;
-  unsigned long Time;
-} sensorReadings;
-
 RTC_DATA_ATTR sensorReadings Readings[maxRecords];
 
 void updateLog() {
@@ -38,18 +32,20 @@ void updateLog() {
 
   if (loggerCounter >= maxRecords) {
     if (WiFi.status() == WL_CONNECTED) {
-      ftp.OpenConnection();
-      ftp.ChangeWorkDir("/ESD-USB/Gaggia");
-      ftp.InitFile("Type A");
-      ftp.AppendFile(currDate);
-      char buffer[40 * maxRecords];
-      int j = 0;
-      for (int i = 0; i < maxRecords; i++) {
-        j += sprintf(buffer + j, "%f,%f,%u,%lu\n", Readings[i].Temp, Readings[i].Press, Readings[i].BoilPw, Readings[i].Time);
+      // Build and validate the complete payload before opening FTP.
+      // Each of the 30 rows has up to 96 bytes reserved; no unchecked writes.
+      char buffer[96 * maxRecords];
+      if (currDate[0] == '\0' || !formatLogRecords(Readings, maxRecords, buffer, sizeof(buffer))) {
+        Serial.println("ERROR: log payload/date invalid; skipping FTP write");
+      } else {
+        ftp.OpenConnection();
+        ftp.ChangeWorkDir("/ESD-USB/Gaggia");
+        ftp.InitFile("Type A");
+        ftp.AppendFile(currDate);
+        ftp.Write(buffer);
+        ftp.CloseFile();
+        ftp.CloseConnection();
       }
-      ftp.Write(buffer);
-      ftp.CloseFile();
-      ftp.CloseConnection();
     }
     loggerCounter = 0;
   }
