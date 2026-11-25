@@ -57,12 +57,13 @@ void ARDUINO_ISR_ATTR onGateTimer() {
     else ++unexpectedTimerCount;
     pulsePending = false;
   }
-  portEXIT_CRITICAL_ISR(&stateMux);
   if (fire) {
+    // Same critical section as setGateEnabled(), matching pump.ino.
     digitalWrite(GATE_OUT, HIGH);
     delayMicroseconds(GATE_PULSE_US);
     digitalWrite(GATE_OUT, LOW);
   }
+  portEXIT_CRITICAL_ISR(&stateMux);
 }
 
 void ARDUINO_ISR_ATTR onZeroCross() {
@@ -89,9 +90,9 @@ void setGateEnabled(bool enabled) {
   if (!enabled) {
     pulsePending = false;
     gateCountAtDisable = gateCount;
+    digitalWrite(GATE_OUT, LOW);
   }
   portEXIT_CRITICAL(&stateMux);
-  if (!enabled) digitalWrite(GATE_OUT, LOW);
 }
 
 void setup() {

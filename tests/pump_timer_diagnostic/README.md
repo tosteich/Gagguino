@@ -23,10 +23,14 @@ The GPIO23 waveform imitates a zero-cross detector at about 100 rising edges/sec
 - `delayUs(min/max)` is a software-only min/max estimate from ISR timestamps, reset at every power level. It is not a hardware waveform measurement and should not be interpreted as a precision timing validation.
 - A crash, watchdog reset, freeze, or rapidly growing `unexpected`/`overwritten` indicates a test failure. Save the full serial log.
 
-These counters verify callback execution, **not** accurate signal timing, pulse width, electrical isolation, or safe operation on mains voltage. This diagnostic is not a reproduction of an Arduino two-core GPIO-write race; it cannot prove that GPIO18 never briefly goes HIGH during a simultaneous inhibit. **Do not connect a dimmer or pump based solely on this test.**
+These counters verify callback execution, **not** accurate signal timing, pulse width, electrical isolation, or safe operation on mains voltage. The production code and diagnostic now protect the full HIGH/LOW sequence and the inhibit LOW write with the same cross-core critical section. An inhibit may wait for an already-started 40-us pulse to finish. These counters still cannot measure sub-millisecond electrical glitches or guarantee physical output timing without an oscilloscope. **Do not connect a dimmer or pump based solely on this test.**
 
 ## Diagnostic limitations
 
 The Arduino Core 3 timer API is based on the GPTimer driver. Calling `timerAlarm()` from a GPIO ISR still needs board-level verification. If it fails, preserve the failing log; do not connect mains hardware. For production, a dedicated GPTimer/ISR strategy may be necessary.
 
 The reported counts are cumulative and are snapshots taken outside interrupt context. At transitions they may differ by one; compare readings after the signal has been silent for at least a full second.
+
+## Critical-section trade-off
+
+The gate timer ISR now holds the shared spinlock during the nominal 40-us HIGH interval. This serializes a cross-core inhibit against the entire pulse instead of only the permission check. An inhibit that arrives during an active pulse must wait until the ISR drives GPIO18 LOW; this adds up to roughly one pulse duration plus overhead to the inhibit latency. This is a deliberately conservative software change, **not** evidence of hardware safety. Re-run the 50-second diagnostic on USB-only ESP32; confirm no hangs/watchdog resets and compare `delayUs(min/max)` to the previous run.

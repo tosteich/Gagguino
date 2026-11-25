@@ -14,24 +14,28 @@ bool pumpPulsesEnabled = true;
 void setPumpPulsesEnabled(bool enabled) {
   portENTER_CRITICAL(&pumpTimerMux);
   pumpPulsesEnabled = enabled;
-  if (!enabled) pumpPulsePending = false;
+  if (!enabled) {
+    pumpPulsePending = false;
+    // LOW and HIGH must use the same mux. Otherwise a timer ISR on
+    // the other core can raise GPIO18 after inhibit has returned.
+    digitalWrite(PUMP_DIMMER_M1_PIN, LOW);
+  }
   portEXIT_CRITICAL(&pumpTimerMux);
-
-  if (!enabled) digitalWrite(PUMP_DIMMER_M1_PIN, LOW);
 }
 
 void ARDUINO_ISR_ATTR onPumpTimer() {
-  bool fire = false;
   portENTER_CRITICAL_ISR(&pumpTimerMux);
-  fire = pumpPulsePending && pumpPulsesEnabled;
+  const bool fire = pumpPulsePending && pumpPulsesEnabled;
   pumpPulsePending = false; // One pulse at most for each zero-crossing event.
-  portEXIT_CRITICAL_ISR(&pumpTimerMux);
-
   if (fire) {
+    // Keep the full 40-us HIGH/LOW sequence under the same mux as inhibit.
+    // A disable request may wait for an in-flight pulse to finish, but
+    // no pulse can begin AFTER the disable call has completed.
     digitalWrite(PUMP_DIMMER_M1_PIN, HIGH);
     delayMicroseconds(PUMP_GATE_PULSE_US);
     digitalWrite(PUMP_DIMMER_M1_PIN, LOW);
   }
+  portEXIT_CRITICAL_ISR(&pumpTimerMux);
 }
 
 void ARDUINO_ISR_ATTR handleInterrupt() {
