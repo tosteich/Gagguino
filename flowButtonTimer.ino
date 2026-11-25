@@ -8,12 +8,16 @@ void checkMachineButtonStatus() {
   flowButtonIsPressed = flowButtonState.update(digitalRead(BUTTON_PIN) == LOW, millis());
   if (flowButtonIsPressed) {
     if (!stopWatch.getIsFlow()) {
+      // A new shot must not reuse accumulated PID state from a previous shot.
+      pumpPid.resetState();
       setBooleans(true, true);
-      pumpPid.setSetPoint(settings[PREINFUSE_PRESSURE].value); 
+      pumpPid.setSetPoint(settings[PREINFUSE_PRESSURE].value);
       stopWatch.run(ws, myNex);
     }
   } else {
     if (stopWatch.getIsFlow()) {
+      // Clear stale integral/derivative terms before the next shot.
+      pumpPid.resetState();
       setBooleans(false, true);
       isManual=false;
       stopWatch.run(ws, myNex);
