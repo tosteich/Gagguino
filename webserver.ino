@@ -310,6 +310,56 @@ void initWebServerControllers() {
   });
 #endif
 
+#ifdef GAGGUINO_SHOT_ARCHIVE_TEST
+  server.on("/api/test-shots", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!request->hasParam("count") || !request->hasParam("seconds")) {
+      request->send(400, "text/plain", "Required: count=1..100, seconds=15..120");
+      return;
+    }
+    auto parseNumber = [](const String& value, uint32_t& out) -> bool {
+      if (value.isEmpty() || value.length() > 3) return false;
+      uint32_t number = 0;
+      for (size_t i = 0; i < value.length(); ++i) {
+        if (value[i] < '0' || value[i] > '9') return false;
+        number = number * 10 + value[i] - '0';
+      }
+      out = number;
+      return true;
+    };
+    uint32_t count = 0, seconds = 0;
+    if (!parseNumber(request->getParam("count")->value(), count) ||
+        !parseNumber(request->getParam("seconds")->value(), seconds) ||
+        count < 1 || count > 100 || seconds < 15 || seconds > 120) {
+      request->send(400, "text/plain", "Invalid count or duration");
+      return;
+    }
+    if (!shotArchive.available()) {
+      request->send(503, "text/plain", "Archive unavailable");
+      return;
+    }
+    uint8_t state = shotBatchState.load();
+    while (state != 1 && state != 2) {
+      if (shotBatchState.compare_exchange_weak(state, 1)) {
+        pendingShotBatch.store((count << 16) | seconds);
+        request->send(202, "text/plain", "Batch queued; check /api/test-shots/status");
+        return;
+      }
+    }
+    request->send(409, "text/plain", "Batch already running");
+  });
+  server.on("/api/test-shots/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+    const uint8_t state = shotBatchState.load();
+    const char* stateText = state == 1 ? "queued" : state == 2 ? "running" :
+                            state == 3 ? "completed" : state == 4 ? "failed" : "idle";
+    const String json = String("{\\"state\\":\\"") + stateText +
+                        "\\",\\"total\\":" + String(shotBatchTotal.load()) +
+                        ",\\"queued\\":" + String(shotBatchQueued.load()) +
+                        ",\\"saved\\":" + String(shotBatchSaved.load()) +
+                        ",\\"failed\\":" + String(shotBatchFailed.load()) + "}";
+    request->send(200, "application/json", json);
+  });
+#endif
+
   server.on("/targetTemp", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("temp")) {
       String str = request->getParam("temp")->value();
