@@ -54,30 +54,52 @@
 
       <section id="page-settings" class="page" hidden>
         <form id="allSettingsForm">
-          <div class="settings-grid">
-            <article class="card">
-              <h2>Профиль давления</h2>
-              <p class="muted">Три этапа приготовления. Значения давления — в барах.</p>
-              <div id="profileSettingsFields" class="field-form"></div>
+          <div class="settings-redesign">
+            <article class="card settings-profile">
+              <div class="section-head"><div><h2>Профиль давления</h2><p>Три этапа приготовления — время и целевое давление</p></div></div>
+              <div class="profile-stage-list">
+                <section class="profile-stage stage-preinfuse" aria-labelledby="preinfTitle">
+                  <div class="stage-heading"><span class="stage-number">01</span><div><h3 id="preinfTitle">Предсмачивание</h3><p>Мягкое смачивание кофейной таблетки</p></div></div>
+                  <div id="preinfSettingsFields" class="stage-inputs"></div>
+                </section>
+                <section class="profile-stage stage-hold" aria-labelledby="holdTitle">
+                  <div class="stage-heading"><span class="stage-number">02</span><div><h3 id="holdTitle">Набор и удержание</h3><p>Выход на основное давление</p></div></div>
+                  <div id="holdSettingsFields" class="stage-inputs"></div>
+                </section>
+                <section class="profile-stage stage-decline" aria-labelledby="declineTitle">
+                  <div class="stage-heading"><span class="stage-number">03</span><div><h3 id="declineTitle">Снижение давления</h3><p>Завершение приготовления</p></div></div>
+                  <div id="declineSettingsFields" class="stage-inputs"></div>
+                </section>
+              </div>
             </article>
-            <article class="card">
-              <h2>Температура</h2>
-              <div id="temperatureSettingsFields" class="field-form"></div>
-              <h2 style="margin-top:18px">PID бойлера</h2>
-              <div id="boilerSettingsFields" class="field-form"></div>
+            <div class="settings-control-column">
+              <article class="card settings-temperature">
+                <h2>Температура</h2>
+                <p class="muted">Целевые значения для приготовления и пара</p>
+                <div id="temperatureSettingsFields" class="settings-field-grid"></div>
+              </article>
+              <article class="card settings-pid">
+                <h2>PID бойлера</h2>
+                <p class="muted">Коэффициенты регулирования нагрева</p>
+                <div id="boilerSettingsFields" class="settings-field-grid pid-field-grid"></div>
+              </article>
+              <article class="card settings-pid">
+                <h2>PID помпы</h2>
+                <p class="muted">Коэффициенты регулирования давления</p>
+                <div id="pumpSettingsFields" class="settings-field-grid pid-field-grid"></div>
+              </article>
+            </div>
+            <article class="card settings-save-panel">
+              <div class="settings-save-copy">
+                <h2>Сохранение настроек</h2>
+                <p class="muted">Применяются вне пролива, сохраняются в ESP32 и передаются в Nextion.</p>
+                <p id="allSettingsStatus" class="muted" role="status" aria-live="polite">Ожидание текущих настроек ESP32…</p>
+              </div>
+              <div class="settings-save-actions">
+                <button class="btn secondary" type="button" id="reloadAllSettings">Обновить значения</button>
+                <button class="btn primary" type="submit" id="saveAllSettings">Сохранить настройки</button>
+              </div>
             </article>
-            <article class="card">
-              <h2>PID помпы</h2>
-              <div id="pumpSettingsFields" class="field-form"></div>
-            </article>
-            <article class="card">
-              <h2>Сохранение</h2>
-              <p class="muted">Изменения применяются только вне пролива и сохраняются в памяти ESP32. Экран Nextion также обновляется.</p>
-              <button class="btn primary" type="submit" id="saveAllSettings">Сохранить все настройки</button>
-              <button class="btn secondary" type="button" id="reloadAllSettings">Обновить значения</button>
-              <p id="allSettingsStatus" class="muted" role="status" aria-live="polite">Ожидание текущих настроек ESP32…</p>
-            </article>
-
           </div>
         </form>
       </section>
