@@ -432,6 +432,41 @@
     }catch(error){settingsStatus("Не удалось подтвердить сохранение: "+error.message,true);}
     finally{queuedEdit=false;$("saveAllSettings").disabled=demo;}
   });
+  function formatStorageBytes(value) {
+    if(!Number.isFinite(value)||value<0)return "—";
+    return value>=1048576?(value/1048576).toFixed(2)+" МиБ":
+      (value/1024).toFixed(1)+" КиБ";
+  }
+  async function refreshStorage() {
+    const status=$("storageStatus");
+    const button=$("refreshStorage");
+    button.disabled=true;
+    try {
+      const response=await fetch("/api/system/storage",{cache:"no-store"});
+      if(!response.ok)throw new Error("HTTP "+response.status);
+      const data=await response.json();
+      const values=["totalBytes","usedBytes","freeBytes","shots","maxShots","writeErrors"];
+      if(values.some(key=>!Number.isSafeInteger(data[key])||data[key]<0)||
+         data.totalBytes<=0||data.usedBytes>data.totalBytes||
+         data.freeBytes!==data.totalBytes-data.usedBytes)
+        throw new Error("Некорректные данные от ESP32");
+      $("storageTotal").textContent=formatStorageBytes(data.totalBytes);
+      $("storageUsed").textContent=formatStorageBytes(data.usedBytes);
+      $("storageFree").textContent=formatStorageBytes(data.freeBytes);
+      $("storageShots").textContent=data.shots+" / "+data.maxShots;
+      $("storageErrors").textContent=String(data.writeErrors);
+      const percent=100*data.usedBytes/data.totalBytes;
+      $("storageFill").style.width=percent.toFixed(1)+"%";
+      $("storageMeter").setAttribute("aria-valuenow",String(Math.round(percent)));
+      $("storagePercent").textContent=percent.toFixed(1)+"% занято";
+      $("storageDetails").hidden=false;
+      status.textContent="LittleFS доступна";
+    }catch(error) {
+      $("storageDetails").hidden=true;
+      status.textContent="Не удалось получить состояние LittleFS: "+error.message;
+    }finally{button.disabled=false;}
+  }
+  $("refreshStorage").addEventListener("click",refreshStorage);
   $("rebootButton").addEventListener("click",()=>{
     if(demo){message("В DEMO перезагрузка ESP32 запрещена.",true);return;}
     if(!connected){message("Нет соединения с ESP32.",true);return;}
