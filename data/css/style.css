@@ -221,3 +221,9 @@ footer{padding-top:14px;border-top:1px solid #2a3645}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+
+/* Sensor placeholders on disconnected USB development boards */
+.sensor-note{display:block;margin-top:7px;font-size:11px;line-height:1.4;color:#ffbf99}
+.sensor-note[hidden]{display:none!important}
+.metric.sensor-unavailable .metric-value{color:#8996a6}
+.metric.sensor-unavailable:before{background:#718198}
