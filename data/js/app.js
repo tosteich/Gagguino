@@ -88,76 +88,142 @@
       :frozen?"Зафиксированный снимок · данные продолжают поступать"
         :"Живые показания · последние 60 измерений";
   }
+  // LIVE uses stable axes, archived shots use a padded, data-driven scale.
+  // All values come from the existing packed shot data, never interpolated.
+  function chartScale(samples, archived) {
+    if(!archived)return {tempMin:0,tempMax:150,pressMin:0,pressMax:12};
+    const temps=samples.map(s=>s.temp).filter(v=>Number.isFinite(v)&&v>-40&&v<150);
+    const pressures=samples.map(s=>s.press).filter(v=>Number.isFinite(v)&&v>=0);
+    let tempMin=0,tempMax=150,pressMax=12;
+    if(temps.length) {
+      const low=Math.min(...temps),high=Math.max(...temps);
+      const pad=Math.max(1.5,(high-low)*0.17);
+      tempMin=Math.floor((low-pad)*2)/2;
+      tempMax=Math.ceil((high+pad)*2)/2;
+      if(tempMax<=tempMin)tempMax=tempMin+3;
+    }
+    if(pressures.length) {
+      const high=Math.max(...pressures);
+      pressMax=Math.max(3,Math.ceil((high+Math.max(.5,high*.09))*2)/2);
+    }
+    return {tempMin,tempMax,pressMin:0,pressMax};
+  }
   function draw(canvas) {
     const ctx=canvas.getContext("2d");if(!ctx)return;
     const w=canvas.clientWidth,h=canvas.clientHeight;
     if(w<110||h<110)return;
-    const dpr=window.devicePixelRatio||1;
+    const dpr=Math.min(window.devicePixelRatio||1,3);
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
-    const left=48,right=w-52,top=38,bottom=h-35;
+    const left=50,right=w-49,top=39,bottom=h-35;
     const samples=visibleSamples(canvas.id);
     const first=samples.length?samples[0].t:0;
     const end=samples.length?samples[samples.length-1].t:first+60;
     const span=Math.max(1,end-first);
+    const archived=canvas.id==="detailChart" && selectedArchive!==null;
+    const scale=chartScale(samples,archived);
     plotBounds[canvas.id]={left,right,top,bottom,first,span};
+    const xAt=s=>left+(right-left)*(s.t-first)/span;
+    const yAt=(v,min,max)=>bottom-(Math.max(min,Math.min(max,v))-min)/(max-min)*(bottom-top);
+    const tempY=v=>yAt(v,scale.tempMin,scale.tempMax);
+    const pressureY=v=>yAt(v,scale.pressMin,scale.pressMax);
+    const ink="#a5b4c5",orange="#f0b17c",blue="#78c7fb";
+
     ctx.font="11px system-ui";ctx.textBaseline="alphabetic";
-    ctx.textAlign="right";ctx.fillStyle="#e5a36e";ctx.fillText("°C",left-8,16);
-    ctx.textAlign="left";ctx.fillStyle="#69bfff";ctx.fillText("бар",right+8,16);
+    ctx.textAlign="right";ctx.fillStyle=orange;ctx.fillText("°C",left-8,16);
+    ctx.textAlign="left";ctx.fillStyle=blue;ctx.fillText("бар",right+8,16);
     for(let i=0;i<=4;i++){
       const y=top+(bottom-top)*i/4;
-      ctx.strokeStyle="#394355";ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
-      ctx.fillStyle="#9aa8bd";
-      ctx.textAlign="right";ctx.fillText((150-i*37.5).toFixed(i%2?1:0),left-8,y+4);
-      ctx.textAlign="left";ctx.fillText(String(12-i*3),right+8,y+4);
+      ctx.strokeStyle="#344254";ctx.lineWidth=1;ctx.beginPath();
+      ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
+      const tv=scale.tempMax-(scale.tempMax-scale.tempMin)*i/4;
+      const pv=scale.pressMax-(scale.pressMax-scale.pressMin)*i/4;
+      ctx.fillStyle=ink;ctx.textAlign="right";
+      ctx.fillText(tv.toFixed(archived?1:(i%2?1:0)),left-8,y+4);
+      ctx.textAlign="left";
+      ctx.fillText(pv.toFixed(archived?1:0),right+8,y+4);
     }
-    ctx.textAlign="center";ctx.fillStyle="#9aa8bd";
+    ctx.textAlign="center";ctx.fillStyle=ink;
     for(let i=0;i<=4;i++){
       const x=left+(right-left)*i/4;
       ctx.fillText((span*i/4).toFixed(span<10?1:0)+"с",x,h-11);
     }
+    const tooltip=$(canvas.id==="liveChart"?"liveTooltip":"detailTooltip");
     if(samples.length<2){
+      ctx.fillStyle=ink;
       ctx.fillText("Ожидание показаний…",(left+right)/2,(top+bottom)/2);
-      $(canvas.id==="liveChart"?"liveTooltip":"detailTooltip").hidden=true;
-      return;
+      tooltip.hidden=true;return;
     }
-    const xAt=s=>left+(right-left)*(s.t-first)/span;
-    const yAt=(v,max)=>bottom-(Math.max(0,Math.min(max,v))/max)*(bottom-top);
-    for(const [key,color,max] of [["temp","#e5a36e",150],["press","#69bfff",12]]){
-      ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin="round";ctx.beginPath();
+
+    // Drawing is clipped to the plot so a reading outside the axis range
+    // cannot overlap the labels, legend or title.
+    ctx.save();
+    ctx.beginPath();ctx.rect(left,top,right-left,bottom-top);ctx.clip();
+
+    // One fill per uninterrupted pressure segment; missing values stay gaps.
+    let segment=[];
+    function fillPressureSegment(){
+      if(segment.length<2){segment=[];return;}
+      const gradient=ctx.createLinearGradient(0,top,0,bottom);
+      gradient.addColorStop(0,"rgba(120,199,251,.23)");
+      gradient.addColorStop(1,"rgba(120,199,251,.015)");
+      ctx.beginPath();ctx.moveTo(xAt(segment[0]),bottom);
+      for(const pt of segment)ctx.lineTo(xAt(pt),pressureY(pt.press));
+      ctx.lineTo(xAt(segment[segment.length-1]),bottom);ctx.closePath();
+      ctx.fillStyle=gradient;ctx.fill();segment=[];
+    }
+    for(const point of samples){
+      if(Number.isFinite(point.press)&&point.press>=0)segment.push(point);
+      else fillPressureSegment();
+    }
+    fillPressureSegment();
+
+    for(const [key,color,yFn] of [["temp",orange,tempY],["press",blue,pressureY]]){
+      ctx.strokeStyle=color;ctx.lineWidth=2.6;
+      ctx.lineJoin="round";ctx.lineCap="round";ctx.beginPath();
       let started=false;
-      for(const s of samples){
-        if(s[key]===null||!Number.isFinite(s[key])){started=false;continue;}
-        const x=xAt(s),y=yAt(s[key],max);
+      for(const point of samples){
+        const v=point[key];
+        if(!Number.isFinite(v)){started=false;continue;}
+        const x=xAt(point),y=yFn(v);
         if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
       }
       ctx.stroke();
     }
     const pos=hoverPosition[canvas.id];
-    const tooltip=$(canvas.id==="liveChart"?"liveTooltip":"detailTooltip");
-    if(pos===null||pos<left||pos>right){tooltip.hidden=true;return;}
+    if(pos===null||pos<left||pos>right){tooltip.hidden=true;ctx.restore();return;}
     const target=first+(pos-left)/(right-left)*span;
     let sample=samples[0];
-    for(const s of samples)if(Math.abs(s.t-target)<Math.abs(sample.t-target))sample=s;
-    const x=xAt(sample);
-    ctx.save();ctx.strokeStyle="#96a7ba";ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();ctx.restore();
-    for(const [key,color,max] of [["temp","#e5a36e",150],["press","#69bfff",12]]){
-      if(sample[key]===null)continue;
-      ctx.beginPath();ctx.arc(x,yAt(sample[key],max),4,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
+    for(const candidate of samples){
+      if(Math.abs(candidate.t-target)<Math.abs(sample.t-target))sample=candidate;
     }
-    tooltip.textContent="";
-    for(const [txt,color] of [
-      [(sample.t-first).toFixed(1)+" с","#f2f4f8"],
-      ["Температура: "+fmt(sample.temp)+" °C","#e5a36e"],
-      ["Давление: "+fmt(sample.press)+" бар","#69bfff"]]){
-      const line=document.createElement("div");line.textContent=txt;line.style.color=color;tooltip.appendChild(line);
+    const x=xAt(sample);
+    ctx.save();ctx.strokeStyle="#b4c5d5";ctx.setLineDash([4,5]);ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();ctx.restore();
+    for(const [key,color,yFn] of [["temp",orange,tempY],["press",blue,pressureY]]){
+      if(!Number.isFinite(sample[key]))continue;
+      const y=yFn(sample[key]);
+      ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);
+      ctx.fillStyle="#172230";ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.stroke();
+    }
+    ctx.restore();
+    tooltip.replaceChildren();
+    for(const [label,value,color] of [
+      ["Время",(sample.t-first).toFixed(1)+" с","#f1f4f7"],
+      ["Температура",Number.isFinite(sample.temp)?sample.temp.toFixed(1)+" °C":"—",orange],
+      ["Давление",Number.isFinite(sample.press)?sample.press.toFixed(2)+" бар":"—",blue]
+    ]){
+      const row=document.createElement("div");row.className="chart-tip-row";
+      const name=document.createElement("span");name.textContent=label;
+      const reading=document.createElement("strong");reading.textContent=value;reading.style.color=color;
+      row.append(name,reading);tooltip.append(row);
     }
     tooltip.hidden=false;
-    // Keep tooltip inside chart container rather than letting it cover the right axis.
+    // Keep the popup away from the axis, even near the far-right samples.
     const tw=tooltip.offsetWidth,th=tooltip.offsetHeight;
-    tooltip.style.left=Math.min(Math.max(0,x+12),w-tw-3)+"px";
-    tooltip.style.top=Math.max(0,Math.min(h-th-3,top+18))+"px";
+    const preferred=x+13+tw<=w-4?x+13:x-tw-13;
+    tooltip.style.left=Math.max(2,Math.min(w-tw-2,preferred))+"px";
+    tooltip.style.top=Math.max(2,Math.min(h-th-2,top+15))+"px";
   }
   function drawCharts(){
     for(const id of ["liveChart","detailChart"]){
