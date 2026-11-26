@@ -50,6 +50,9 @@ public final class MainActivity extends Activity {
     private LinearLayout offline;
     private ProgressBar spinner;
     private TextView addressText;
+    private LinearLayout toolbar;
+    private Button expandToolbar;
+    private FrameLayout rootFrame;
     private String address = "";
     private boolean failed;
     private byte[] csvData;
@@ -77,22 +80,25 @@ public final class MainActivity extends Activity {
     }
 
     private void createLayout() {
+        rootFrame = new FrameLayout(this);
+        rootFrame.setBackgroundColor(BG);
+        setContentView(rootFrame);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BG);
-        setContentView(root);
+        rootFrame.addView(root, new FrameLayout.LayoutParams(-1,-1));
         if (Build.VERSION.SDK_INT >= 30) {
-            root.setOnApplyWindowInsetsListener((view, insets) -> {
+            rootFrame.setOnApplyWindowInsetsListener((view, insets) -> {
                 android.graphics.Insets bars = insets.getInsets(
                     WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars()
                     | WindowInsets.Type.displayCutout());
-                view.setPadding(bars.left,bars.top,bars.right,bars.bottom);
+                rootFrame.setPadding(bars.left,bars.top,bars.right,bars.bottom);
                 return insets;
             });
-            root.requestApplyInsets();
+            rootFrame.requestApplyInsets();
         }
 
-        LinearLayout toolbar = new LinearLayout(this);
+        toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.setPadding(dp(12),0,dp(6),0);
         toolbar.setBackgroundColor(PANEL);
@@ -122,6 +128,22 @@ public final class MainActivity extends Activity {
         settings.setContentDescription("Change IP / Змінити IP");
         settings.setOnClickListener(v -> promptAddress(false));
         toolbar.addView(settings,new LinearLayout.LayoutParams(dp(44),dp(48)));
+
+        Button hide = button("⌃");
+        hide.setContentDescription("Hide controls / Сховати панель");
+        hide.setOnClickListener(v -> setToolbarVisible(false));
+        toolbar.addView(hide,new LinearLayout.LayoutParams(dp(44),dp(48)));
+
+        expandToolbar = button("☰");
+        expandToolbar.setTextColor(ACCENT);
+        expandToolbar.setContentDescription("Show app controls / Показати панель");
+        expandToolbar.setBackgroundTintList(android.content.res.ColorStateList.valueOf(PANEL));
+        expandToolbar.setElevation(dp(5));
+        FrameLayout.LayoutParams toggleLayout = new FrameLayout.LayoutParams(
+            dp(44),dp(44),Gravity.TOP | Gravity.END);
+        toggleLayout.setMargins(0,dp(6),dp(8),0);
+        rootFrame.addView(expandToolbar,toggleLayout);
+        expandToolbar.setOnClickListener(v -> setToolbarVisible(true));
 
         viewport = new FrameLayout(this);
         root.addView(viewport,new LinearLayout.LayoutParams(-1,0,1));
@@ -166,6 +188,14 @@ public final class MainActivity extends Activity {
         edit.setOnClickListener(v -> promptAddress(false));
         offline.addView(edit,new LinearLayout.LayoutParams(-1,dp(54)));
         offline.setVisibility(View.GONE);
+        setToolbarVisible(getPreferences(0).getBoolean("toolbar_visible",false));
+    }
+
+    private void setToolbarVisible(boolean show) {
+        if(toolbar == null || expandToolbar == null)return;
+        toolbar.setVisibility(show ? View.VISIBLE : View.GONE);
+        expandToolbar.setVisibility(show ? View.GONE : View.VISIBLE);
+        getPreferences(0).edit().putBoolean("toolbar_visible",show).apply();
     }
 
     private void showAddress() {
