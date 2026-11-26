@@ -6,7 +6,8 @@
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
         android:label="Gagguino"
-        android:icon="@drawable/ic_gagguino"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/Theme.Gagguino">
         <activity android:name=".MainActivity"
             android:exported="true"
