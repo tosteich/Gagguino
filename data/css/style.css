@@ -404,3 +404,32 @@ footer{padding-top:14px;border-top:1px solid #2a3645}
     height:18px;
   }
 }
+
+/* Compact, keyboard accessible archive list: native details starts collapsed. */
+.archive-disclosure{
+  margin-top:14px;
+  border:1px solid #344254;
+  border-radius:12px;
+  background:#111b27;
+  overflow:hidden;
+}
+.archive-disclosure summary{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  min-height:46px;padding:12px 16px;cursor:pointer;
+  font-size:13px;font-weight:700;color:#dce7f2;
+  list-style:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.archive-disclosure summary::-webkit-details-marker{display:none}
+.archive-disclosure summary::marker{content:""}
+.archive-disclosure summary:hover{background:#223043}
+.archive-disclosure summary:focus-visible{outline:2px solid var(--focus);outline-offset:-3px}
+.archive-chevron{
+  width:9px;height:9px;flex:0 0 9px;
+  border-right:2px solid #aabacf;border-bottom:2px solid #aabacf;
+  transform:rotate(45deg);
+  transition:transform .16s ease;
+}
+.archive-disclosure[open] .archive-chevron{transform:rotate(225deg)}
+.archive-disclosure .shot-list{margin:0;padding:12px;border-top:1px solid #344254}
+@media(prefers-reduced-motion:reduce){.archive-chevron{transition:none}}
