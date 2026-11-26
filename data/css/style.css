@@ -248,3 +248,83 @@ footer{padding-top:14px;border-top:1px solid #2a3645}
 .chart-tip-row strong{font-size:12px;font-weight:720;font-variant-numeric:tabular-nums}
 .chart-wrap canvas{cursor:crosshair}
 @media(max-width:750px){.chart-tooltip{min-width:165px;padding:9px 11px}.chart-tip-row{gap:12px}}
+
+
+/* Settings visual layout: three profile stages, compact PID groups, bottom save bar */
+.settings-redesign{
+  display:grid;
+  grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);
+  align-items:start;gap:20px;
+}
+.settings-profile{grid-column:1;grid-row:1}
+.settings-control-column{grid-column:2;grid-row:1;display:grid;gap:18px;min-width:0}
+.settings-save-panel{
+  grid-column:1/-1;display:flex;align-items:center;
+  justify-content:space-between;gap:24px;
+  border-color:#57493f;background:linear-gradient(115deg,#262930,#19232e);
+}
+.settings-save-copy{min-width:0}
+.settings-save-copy p{font-size:12px;margin:7px 0 0;max-width:610px}
+.settings-save-copy #allSettingsStatus{margin-top:12px;color:#b5c7d8}
+.settings-save-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;flex-shrink:0}
+#allSettingsForm .settings-save-actions button{margin:0;min-height:44px}
+.settings-profile .section-head p{max-width:460px}
+.profile-stage-list{display:grid;gap:12px;margin-top:20px}
+.profile-stage{
+  border-radius:14px;border:1px solid #354456;
+  background:#111b27;padding:17px 18px 19px;min-width:0;
+}
+.stage-preinfuse{border-left:3px solid #77bddd}
+.stage-hold{border-left:3px solid #ecb17f}
+.stage-decline{border-left:3px solid #8dd3ac}
+.stage-heading{display:flex;align-items:flex-start;gap:13px}
+.stage-number{
+  flex-shrink:0;display:grid;place-items:center;
+  height:35px;width:35px;border-radius:10px;
+  color:#dce7f2;background:#2b3948;
+  font:700 13px/1 system-ui,sans-serif;font-variant-numeric:tabular-nums;
+}
+.stage-heading h3{font-size:15px;line-height:1.3;letter-spacing:-.15px;margin:0 0 4px}
+.stage-heading p{font-size:11px;color:var(--muted);margin:0}
+.stage-inputs,.settings-field-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;margin-top:16px;
+}
+.pid-field-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.settings-redesign .web-setting-row{
+  border:0;margin:0;padding:0;display:flex;
+  flex-direction:column;align-items:stretch;gap:6px;
+}
+.settings-redesign .web-setting-row+.web-setting-row{border-top:0}
+.settings-redesign .web-setting-row label{
+  font-size:12px;line-height:1.45;font-weight:570;color:#b5c5d3;
+}
+.settings-redesign .web-setting-controls{max-width:none;width:100%;gap:7px}
+.settings-redesign .web-setting-controls input{
+  width:100%;min-width:0;min-height:42px;font-size:16px;
+  font-variant-numeric:tabular-nums;
+}
+.settings-redesign .web-setting-controls span{flex:none;min-width:25px;font-size:12px}
+.settings-control-column>.card{padding:21px 23px}
+.settings-control-column>.card>p{margin:4px 0 0;font-size:12px}
+@media(max-width:1180px){
+  .settings-redesign{grid-template-columns:minmax(0,1fr)}
+  .settings-profile,.settings-control-column{grid-column:1;grid-row:auto}
+  .settings-control-column{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .settings-temperature{grid-column:1/-1}
+  .settings-save-panel{grid-column:1;flex-wrap:wrap}
+}
+@media(max-width:700px){
+  .settings-control-column{grid-template-columns:minmax(0,1fr)}
+  .settings-temperature{grid-column:1}
+  .settings-save-actions{justify-content:stretch;width:100%}
+  .settings-save-actions button{flex:1}
+}
+@media(max-width:420px){
+  .profile-stage{padding:15px 12px}
+  .stage-inputs,.settings-field-grid{gap:9px}
+  .pid-field-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .settings-control-column>.card{padding:18px 15px}
+  .settings-redesign .web-setting-controls input{padding:9px 7px}
+  .settings-redesign .web-setting-controls span{min-width:0}
+}
