@@ -37,6 +37,9 @@
     updateFreezeButton();
     if(selectedArchive===null){
       $("archiveStatus").textContent=t("archiveCountPrefix")+archiveShots.length+t("archiveCountSuffix");
+    }else{
+      $("archiveStatus").textContent=t("shot")+selectedArchiveId+": "+
+        selectedArchive.length+t("shotSamplesSuffix");
     }
     for(const group of settingGroups){
       for(const [key] of group.items){
@@ -369,7 +372,9 @@
       : t("dateUnknown");
   }
   function renderShotList(){
-    const container=$("shotList");container.replaceChildren();
+    const container=$("shotList");
+    const previousScroll=container.scrollTop;
+    container.replaceChildren();
     for(const shot of archiveShots){
       if(!Number.isSafeInteger(shot.id)||shot.id<=0)continue;
       const row=document.createElement("div");row.className="shot-row";
@@ -385,6 +390,7 @@
       button.addEventListener("click",()=>viewArchive(shot.id));
       row.append(description,button);container.appendChild(row);
     }
+    container.scrollTop=previousScroll;
   }
   async function refreshArchive() {
     $("archiveStatus").textContent=t("loadingArchive");
