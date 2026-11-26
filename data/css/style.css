@@ -254,10 +254,14 @@ footer{padding-top:14px;border-top:1px solid #2a3645}
 .settings-redesign{
   display:grid;
   grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);
-  align-items:start;gap:20px;
+  align-items:stretch;gap:20px;
 }
 .settings-profile{grid-column:1;grid-row:1}
-.settings-control-column{grid-column:2;grid-row:1;display:grid;gap:18px;min-width:0}
+.settings-control-column{
+  grid-column:2;grid-row:1;
+  display:grid;grid-template-rows:repeat(3,minmax(0,1fr));
+  gap:18px;min-width:0;align-self:stretch;
+}
 .settings-save-panel{
   grid-column:1/-1;display:flex;align-items:center;
   justify-content:space-between;gap:24px;
@@ -305,17 +309,20 @@ footer{padding-top:14px;border-top:1px solid #2a3645}
   font-variant-numeric:tabular-nums;
 }
 .settings-redesign .web-setting-controls span{flex:none;min-width:25px;font-size:12px}
-.settings-control-column>.card{padding:21px 23px}
+.settings-control-column>.card{
+  padding:21px 23px;min-height:0;height:100%;
+  display:flex;flex-direction:column;
+}
 .settings-control-column>.card>p{margin:4px 0 0;font-size:12px}
 @media(max-width:1180px){
   .settings-redesign{grid-template-columns:minmax(0,1fr)}
   .settings-profile,.settings-control-column{grid-column:1;grid-row:auto}
-  .settings-control-column{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .settings-control-column{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto;align-self:auto}
   .settings-temperature{grid-column:1/-1}
   .settings-save-panel{grid-column:1;flex-wrap:wrap}
 }
 @media(max-width:700px){
-  .settings-control-column{grid-template-columns:minmax(0,1fr)}
+  .settings-control-column{grid-template-columns:minmax(0,1fr);grid-template-rows:auto}
   .settings-temperature{grid-column:1}
   .settings-save-actions{justify-content:stretch;width:100%}
   .settings-save-actions button{flex:1}
