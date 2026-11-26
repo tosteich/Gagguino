@@ -125,7 +125,7 @@
   }
   function setStatus(value) {
     connected=value;
-    $("connectionBadge").textContent=value?t("connected"):t("disconnected");
+    $("connectionBadge").textContent=value?t("connected"):connectionPending?t("connecting"):t("disconnected");
     $("connectionBadge").classList.toggle("ok",value);
     $("connectionLabel").textContent=value?t("online"):t("connecting");
     $("connectionDot").classList.toggle("ok",value);
@@ -160,14 +160,57 @@
       syncSettings({[msg.name]:msg.value});
     }
   }
-  function connect() {
-    const url=(location.protocol==="https:"?"wss":"ws")+"://"+location.host+"/ws";
-    ws=new WebSocket(url);
-    ws.onopen=()=>{setStatus(true);ws.send("initInfo");};
-    ws.onmessage=onMessage;
-    ws.onerror=()=>ws.close();
-    ws.onclose=()=>{setStatus(false);clearTimeout(reconnectHandle);reconnectHandle=setTimeout(connect,2500);};
+  // Keep the live feed recoverable after ESP32 reboots, Wi-Fi changes,
+  // stalled handshakes and browser tab suspension.
+  let connectionTimeout=null;
+  let reconnectDelay=1500;
+  let connectionPending=false;
+  function scheduleReconnect(){
+    clearTimeout(reconnectHandle);
+    reconnectHandle=setTimeout(connect,reconnectDelay);
+    reconnectDelay=Math.min(10000,Math.round(reconnectDelay*1.5));
   }
+  function connect() {
+    clearTimeout(reconnectHandle);
+    if(ws && (ws.readyState===WebSocket.OPEN || ws.readyState===WebSocket.CONNECTING))return;
+    const url=(location.protocol==="https:"?"wss":"ws")+"://"+location.host+"/ws";
+    connectionPending=true;
+    setStatus(false);
+    let socket;
+    try{socket=new WebSocket(url);}catch(error){
+      console.warn("Gagguino: could not start WebSocket",error);
+      connectionPending=false;setStatus(false);scheduleReconnect();return;
+    }
+    ws=socket;
+    clearTimeout(connectionTimeout);
+    connectionTimeout=setTimeout(()=>{
+      if(ws===socket && socket.readyState===WebSocket.CONNECTING){
+        console.warn("Gagguino: WebSocket handshake timed out");
+        socket.close();
+      }
+    },8000);
+    socket.onopen=()=>{
+      if(ws!==socket)return;
+      clearTimeout(connectionTimeout);
+      connectionPending=false;reconnectDelay=1500;
+      setStatus(true);socket.send("initInfo");
+    };
+    socket.onmessage=event=>{if(ws===socket)onMessage(event);};
+    socket.onerror=()=>{console.warn("Gagguino: WebSocket error at",url);};
+    socket.onclose=event=>{
+      if(ws!==socket)return;
+      clearTimeout(connectionTimeout);
+      connectionPending=false;setStatus(false);
+      console.warn("Gagguino: WebSocket closed",event.code,event.reason||"");
+      scheduleReconnect();
+    };
+  }
+  window.addEventListener("online",()=>{
+    if(!ws || ws.readyState>=WebSocket.CLOSING)connect();
+  });
+  document.addEventListener("visibilitychange",()=>{
+    if(!document.hidden && (!ws || ws.readyState>=WebSocket.CLOSING))connect();
+  });
   function visibleSamples(id) {
     if(id==="detailChart" && selectedArchive!==null)return selectedArchive;
     return id==="detailChart" && frozenSamples!==null?frozenSamples:chartSamples;
