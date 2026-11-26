@@ -43,7 +43,7 @@ void setup(void) {
 
   myNex.writeStr("page 0");
   delay(50);
-  myNex.writeNum("isBrewEnabled", false);
+  myNex.writeNum("isBrewEnabled", true);
 
   myNex.lastCurrentPageId = 1;
   
