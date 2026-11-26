@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original vector artwork: small espresso cup with crema, handle and saucer. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- subtle circular background plate for contrast -->
+    <path android:fillColor="#263344"
+        android:pathData="M54,14a40,40 0,1 1,0 80a40,40 0,1 1,0 -80"/>
+    <!-- crema, inside the rim -->
+    <path android:fillColor="#E6AC75"
+        android:pathData="M34,38 L72,38 L72,44 L34,44 Z"/>
+    <!-- cup body -->
+    <path android:fillColor="#F0B17C"
+        android:pathData="M33,44 L73,44 L71,64 C69,75 62,79 53,79 C44,79 37,75 35,64 Z"/>
+    <!-- interior coffee highlight -->
+    <path android:fillColor="#653D28"
+        android:pathData="M39,47 L67,47 L65.5,63 C64.5,70 60,73 53,73 C46,73 41.5,70 40.5,63 Z"/>
+    <!-- rim -->
+    <path android:strokeColor="#FFE0BC" android:strokeWidth="3"
+        android:fillColor="@android:color/transparent"
+        android:strokeLineCap="round" android:pathData="M33,43 L73,43"/>
+    <!-- handle -->
+    <path android:strokeColor="#F0B17C" android:strokeWidth="6"
+        android:fillColor="@android:color/transparent"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M73,49 L79,49 C91,49 91,65 78,66 L71,66"/>
+    <!-- cup saucer -->
+    <path android:strokeColor="#F0B17C" android:strokeWidth="4"
+        android:fillColor="@android:color/transparent"
+        android:strokeLineCap="round" android:pathData="M29,83 L78,83"/>
+    <!-- rising steam -->
+    <path android:strokeColor="#E9C4A4" android:strokeWidth="3"
+        android:fillColor="@android:color/transparent"
+        android:strokeLineCap="round"
+        android:pathData="M43,33 C38,28 47,25 43,20"/>
+    <path android:strokeColor="#E9C4A4" android:strokeWidth="3"
+        android:fillColor="@android:color/transparent"
+        android:strokeLineCap="round"
+        android:pathData="M57,32 C52,27 61,24 57,19"/>
+</vector>
