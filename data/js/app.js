@@ -3,12 +3,10 @@
   const $ = id => document.getElementById(id);
   const chartSamples = [];
   const MAX_POINTS = 60;
-  const labels = {dashboard:"Обзор",graphs:"Графики",settings:"Настройки"};
+  const labels = {dashboard:"Обзор",graphs:"Графики",settings:"Настройки",system:"Система"};
   let ws, reconnectHandle, connected=false;
   let lastInfo = {temp:null,press:null,power:null,time:0};
   let queuedEdit = false;
-  let demo = false, demoTimer = null, demoSecond = 0;
-  const realSamples = [];
   let frozenSamples = null;
   let selectedArchive = null;
   let archiveShots = [];
@@ -17,18 +15,6 @@
   const hoverPosition = {liveChart:null,detailChart:null};
   const plotBounds = {};
   let realTargetTemp = null;
-  function demoReading(second) {
-    const t = second % 44;
-    let pressure;
-    if(t < 5) pressure = 0;
-    else if(t < 12) pressure = 1.2 + (t-5)*0.05;
-    else if(t < 19) pressure = 1.55 + (t-12)*7.5/7;
-    else if(t < 29) pressure = 9.05 + 0.08*Math.sin(t*1.4);
-    else if(t < 39) pressure = 9 - (t-29)*0.45;
-    else pressure = Math.max(0,4.5-(t-39)*1.2);
-    return {temp:93.2+0.45*Math.sin(t/5)-0.1*Math.sin(t*1.7),
-            press:Math.max(0,pressure),power:Math.max(0,Math.min(100,45+23*Math.sin(t/4))),time:t};
-  }
   function validLiveTemperature(value) {
     // Firmware publishes -50 C when LMT01 data is unavailable.
     return Number.isFinite(value) && value > -40 && value < 150;
@@ -36,49 +22,12 @@
   function showReading(value) {
     const tempOk=validLiveTemperature(value.temp);
     $("temperature").textContent=tempOk?fmt(value.temp):"—";
-    $("tempSensorStatus").hidden=demo||tempOk;
-    $("temperature").closest(".metric").classList.toggle("sensor-unavailable",!demo&&!tempOk);
+    $("tempSensorStatus").hidden=tempOk;
+    $("temperature").closest(".metric").classList.toggle("sensor-unavailable",!tempOk);
     $("pressure").textContent=fmt(value.press);
     $("currentTime").textContent=clock(value.time);
     $("heatPower").textContent=value.power===null?"—":String(Math.round(value.power));
     $("heatBar").style.width=Math.max(0,Math.min(100,value.power||0))+"%";
-  }
-  function demoTick() {
-    const sample=demoReading(demoSecond++);
-    showReading(sample);
-    chartSamples.push({t:Date.now()/1000,temp:sample.temp,press:sample.press});
-    if(chartSamples.length>MAX_POINTS)chartSamples.shift();
-    drawCharts();
-  }
-  function setDemo(enabled) {
-    if(demo===enabled)return;
-    if(enabled && queuedEdit){message("Сначала дождитесь окончания отправки настроек.",true);return;}
-    demo=enabled;
-    if(demoTimer!==null){clearInterval(demoTimer);demoTimer=null;}
-    $("demoBadge").hidden=!demo;
-    $("demoNotice").hidden=!demo;
-    $("demoToggle").textContent=demo?"Отключить DEMO":"Включить DEMO";
-    $("demoToggle").classList.toggle("demo-active",demo);
-    $("demoToggle").setAttribute("aria-pressed",String(demo));
-    for(const input of document.querySelectorAll("#allSettingsForm input"))input.disabled=demo;
-    $("saveAllSettings").disabled=demo;
-    $("reloadAllSettings").disabled=demo;
-    $("rebootButton").disabled=demo;
-    $("targetTemperature").textContent=demo?"93 (DEMO)":realTargetTemp===null?"—":String(realTargetTemp);
-    chartSamples.length=0;
-    frozenSamples=null;
-    selectedArchive=null; selectedArchiveId=null;
-    updateFreezeButton();
-    updateArchiveButtons();
-    if(demo){
-      demoSecond=0;demoTick();
-      demoTimer=setInterval(demoTick,1000);
-      message("DEMO: команды ESP32 отключены.");
-    }else{
-      chartSamples.push(...realSamples);
-      publish();drawCharts();
-      message("DEMO отключён. Возврат к реальным показаниям ESP32.");
-    }
   }
   function setStatus(value) {
     connected=value;
@@ -86,20 +35,19 @@
     $("connectionBadge").classList.toggle("ok",value);
     $("connectionLabel").textContent=value?"ESP32 онлайн":"Ожидание подключения";
     $("connectionDot").classList.toggle("ok",value);
-    $("connectionText").textContent=value?"WebSocket соединён; данные поступают автоматически.":"Соединение потеряно. Повторное подключение выполняется автоматически.";
   }
   function number(v) { const n=Number(v);return Number.isFinite(n)?n:null; }
   function fmt(v,d=1){return v===null?"—":v.toFixed(d);}
   function clock(value){let sec=Math.max(0,Math.floor(Number(value)||0));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0");}
   function publish() {
-    if(!demo) showReading(lastInfo);
+    showReading(lastInfo);
   }
   function syncSettings(message) {
     if(message.targetTemp!==undefined) {
       const temp=number(message.targetTemp);
       if(temp!==null) {
         realTargetTemp=temp;
-        if(!demo)$("targetTemperature").textContent=String(temp);
+        $("targetTemperature").textContent=String(temp);
       }
     }
   }
@@ -111,13 +59,9 @@
     } else if(msg.name==="updateInfo"){
       lastInfo.temp=number(msg.currentTemp);lastInfo.press=number(msg.currentPress);
       lastInfo.power=number(msg.currentPower);lastInfo.time=number(msg.currentTime)||0;
-      realSamples.push({t:Date.now()/1000,temp:validLiveTemperature(lastInfo.temp)?lastInfo.temp:null,press:lastInfo.press});
-      if(realSamples.length>MAX_POINTS)realSamples.shift();
-      if(!demo){
-        chartSamples.push({t:Date.now()/1000,temp:validLiveTemperature(lastInfo.temp)?lastInfo.temp:null,press:lastInfo.press});
-        if(chartSamples.length>MAX_POINTS)chartSamples.shift();
-        publish();drawCharts();
-      }
+      chartSamples.push({t:Date.now()/1000,temp:validLiveTemperature(lastInfo.temp)?lastInfo.temp:null,press:lastInfo.press});
+      if(chartSamples.length>MAX_POINTS)chartSamples.shift();
+      publish();drawCharts();
     } else if(["targetTemp","pidKp","pidKi","pidKd"].includes(msg.name)){
       syncSettings({[msg.name]:msg.value});
     }
@@ -331,9 +275,13 @@
     document.querySelectorAll(".nav-link").forEach(a=>{a.classList.toggle("active",a.dataset.page===active);});
     $("pageTitle").textContent=labels[active];drawCharts();
     if(active==="graphs")refreshArchive();
-    if(active==="settings"){reloadAllSettings();refreshStorage();}
+    if(active==="settings")reloadAllSettings();
+    if(active==="system")refreshStorage();
   }
-  function message(text,error=false){const el=$("allSettingsStatus");el.textContent=text;el.style.color=error?"#ef8189":"#a0adbf";}
+  function message(text,error=false){
+    const el=$("systemActionStatus");
+    el.textContent=text;el.style.color=error?"#ef8189":"#a0adbf";
+  }
   const settingGroups = [
     {holder:"profileSettingsFields",items:[
       ["preinfDur","Предсмачивание · время","с",0,600,1],
@@ -389,7 +337,7 @@
       if(!Number.isFinite(value))throw Error("Некорректное значение "+key);
       const input=$("setting-"+key);
       if(overwrite)input.value=String(value);
-      input.disabled=demo;
+      input.disabled=false;
     }
     settingsRevision=data.revision;
     syncSettings(data);
@@ -405,7 +353,7 @@
   $("reloadAllSettings").addEventListener("click",reloadAllSettings);
   $("allSettingsForm").addEventListener("submit",async event=>{
     event.preventDefault();
-    if(demo||queuedEdit){settingsStatus("Сохранение недоступно в DEMO или пока идёт другая операция.",true);return;}
+    if(queuedEdit){settingsStatus("Дождитесь завершения предыдущей операции.",true);return;}
     const payload=new URLSearchParams();
     for(const [key,,,min,max,step] of settingSpecs){
       const input=$("setting-"+key);
@@ -437,7 +385,7 @@
       await readAllSettings(true);
       settingsStatus("Все 14 параметров сохранены и подтверждены ESP32.");
     }catch(error){settingsStatus("Не удалось подтвердить сохранение: "+error.message,true);}
-    finally{queuedEdit=false;$("saveAllSettings").disabled=demo;}
+    finally{queuedEdit=false;$("saveAllSettings").disabled=false;}
   });
   function formatStorageBytes(value) {
     if(!Number.isFinite(value)||value<0)return "—";
@@ -475,11 +423,9 @@
   }
   $("refreshStorage").addEventListener("click",refreshStorage);
   $("rebootButton").addEventListener("click",()=>{
-    if(demo){message("В DEMO перезагрузка ESP32 запрещена.",true);return;}
     if(!connected){message("Нет соединения с ESP32.",true);return;}
     if(confirm("Перезагрузить ESP32?")){ws.send("reboot");message("Команда перезагрузки отправлена.");}
   });
-  $("demoToggle").addEventListener("click",()=>setDemo(!demo));
   $("freezeChart").addEventListener("click",()=>{
     if(selectedArchive!==null)return;
     frozenSamples=frozenSamples===null?chartSamples.map(p=>({...p})):null;
@@ -487,7 +433,6 @@
   });
   $("clearChart").addEventListener("click",()=>{
     chartSamples.length=0;
-    if(!demo)realSamples.length=0;
     frozenSamples=null;hoverPosition.detailChart=null;updateFreezeButton();drawCharts();
   });
   $("refreshShots").addEventListener("click",refreshArchive);
