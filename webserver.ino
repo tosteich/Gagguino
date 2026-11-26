@@ -296,6 +296,29 @@ void initWebServerControllers() {
     }
   });
 
+  // Read-only filesystem diagnostics; 503 means archive writer is busy.
+  server.on("/api/system/storage", HTTP_GET, [](AsyncWebServerRequest *request) {
+    size_t total = 0, used = 0;
+    uint16_t shots = 0;
+    if (!shotArchive.storageStats(total, used, shots)) {
+      request->send(503, "application/json",
+                    "{\"error\":\"LittleFS unavailable or busy\"}");
+      return;
+    }
+    const size_t freeBytes = used <= total ? total - used : 0;
+    const String json = String("{\"totalBytes\":") + String((unsigned long)total) +
+        ",\"usedBytes\":" + String((unsigned long)used) +
+        ",\"freeBytes\":" + String((unsigned long)freeBytes) +
+        ",\"shots\":" + String(shots) +
+        ",\"maxShots\":" + String(ShotArchive::MAX_SHOTS) +
+        ",\"writeErrors\":" + String((unsigned long)shotArchive.writeErrors()) +
+        "}";
+    AsyncWebServerResponse *response =
+        request->beginResponse(200, "application/json", json);
+    response->addHeader("Cache-Control", "no-store");
+    request->send(response);
+  });
+
   // Archive reads are bounded to 60 shots x 600 packed samples.
   // The writer owns flash writes; web handlers briefly take its mutex for reads.
   server.on("/api/shots", HTTP_GET, [](AsyncWebServerRequest *request) {
