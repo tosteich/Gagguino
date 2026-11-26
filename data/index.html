@@ -16,16 +16,16 @@
         <a class="nav-link active" href="#dashboard" data-page="dashboard"><span class="nav-symbol" aria-hidden="true">◫</span> Обзор</a>
         <a class="nav-link" href="#graphs" data-page="graphs"><span class="nav-symbol" aria-hidden="true">⌁</span> Графики</a>
         <a class="nav-link" href="#settings" data-page="settings"><span class="nav-symbol" aria-hidden="true">⚙</span> Настройки</a>
+        <a class="nav-link" href="#system" data-page="system"><span class="nav-symbol" aria-hidden="true">▤</span> Система</a>
       </nav>
       <div class="sidebar-foot"><span id="connectionDot" class="dot"></span><span id="connectionLabel">Подключение…</span><small>Локальный веб-интерфейс ESP32</small></div>
     </aside>
     <main class="content">
       <header class="topbar">
         <div><p class="eyebrow">GAGGIA <span class="eyebrow-separator">/</span> ESPRESSO CONTROLLER</p><h1 id="pageTitle">Обзор</h1></div>
-        <div class="header-actions"><span id="demoBadge" class="demo-badge" hidden>DEMO · СИМУЛЯЦИЯ</span><button type="button" class="btn secondary" id="demoToggle" aria-pressed="false">Включить DEMO</button><span id="connectionBadge" class="status-badge">Нет соединения</span></div>
+        <div class="header-actions"><span id="connectionBadge" class="status-badge">Нет соединения</span></div>
       </header>
 
-      <div id="demoNotice" class="demo-notice" role="status" hidden>DEMO: показания и графики искусственные. Команды ESP32 отключены.</div>
       <section id="page-dashboard" class="page">
         <div class="metrics">
           <article class="card metric"><span class="metric-label"><span class="metric-marker temp-marker"></span>Температура бойлера</span><div class="metric-value temperature"><span id="temperature">—</span><small>°C</small></div><span class="metric-sub">Цель <b id="targetTemperature">—</b> °C</span><span class="sensor-note" id="tempSensorStatus" hidden>Нет данных с датчика температуры</span></article>
@@ -38,10 +38,6 @@
           <div class="chart-wrap"><canvas id="liveChart" role="img" aria-label="График температуры и давления"></canvas><div class="chart-tooltip" id="liveTooltip" hidden></div></div>
           <p class="hint">До 60 последних измерений · наведи курсор или коснись графика для подробностей. Время — с начала записи в браузере.</p>
         </article>
-        <div class="info-grid">
-          <article class="card"><h2>Подключение</h2><p id="connectionText" class="muted">Ожидание данных WebSocket…</p></article>
-          <article class="card"><h2>Управление</h2><p class="muted">Этот интерфейс не управляет помпой и режимом пара. Они остаются под управлением кофемашины.</p></article>
-        </div>
       </section>
 
       <section id="page-graphs" class="page" hidden>
@@ -52,7 +48,7 @@
           <div class="section-head"><div><h2>Архив приготовлений</h2><p>До 60 проливов длительностью от 15 секунд, записанных ESP32 в LittleFS</p></div><div class="chart-actions"><button class="btn secondary" id="refreshShots" type="button">Обновить</button><button class="btn secondary" id="returnLive" type="button" hidden>Вернуться к LIVE</button><button class="btn secondary" id="downloadShot" type="button" hidden>Скачать CSV</button></div></div>
           <p class="hint" id="archiveStatus" role="status">Загружаем список записей…</p>
           <div id="shotList" class="shot-list"></div>
-          <p class="hint">DEMO-записи существуют только в браузере и в архив ESP32 не сохраняются. Повторная загрузка LittleFS может стереть архив.</p>
+          <p class="hint">Повторная загрузка раздела LittleFS целиком может стереть архив. Используй обновление отдельных веб-файлов через USB.</p>
         </article>
       </section>
 
@@ -81,6 +77,12 @@
               <button class="btn secondary" type="button" id="reloadAllSettings">Обновить значения</button>
               <p id="allSettingsStatus" class="muted" role="status" aria-live="polite">Ожидание текущих настроек ESP32…</p>
             </article>
+
+          </div>
+        </form>
+      </section>
+      <section id="page-system" class="page" hidden>
+        <div class="system-grid">
             <article class="card">
               <h2>Система</h2>
               <div class="storage-panel" aria-label="Состояние LittleFS">
@@ -99,9 +101,9 @@
               </div>
               <p class="muted">Перезапуск ESP32 закроет текущее WebSocket-соединение.</p>
               <button class="btn danger" type="button" id="rebootButton">Перезагрузить ESP32</button>
+              <p id="systemActionStatus" class="muted" role="status" aria-live="polite"></p>
             </article>
-          </div>
-        </form>
+        </div>
       </section>
       <footer>Gagguino • Автономный интерфейс на LittleFS • Данные через WebSocket</footer>
     </main>
