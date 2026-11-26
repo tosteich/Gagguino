@@ -64,3 +64,29 @@ be reliably detected by the ESP32, so a concurrent Nextion save may still
 overwrite a web change. Avoid editing settings simultaneously from both UIs;
 a full conflict-free protocol would require additional Nextion interaction.
 This change does not modify testing.hmi or the display firmware.
+
+## LittleFS status panel (System card)
+
+The existing Settings tab's **Система** card now displays read-only
+filesystem diagnostics from `GET /api/system/storage`:
+`totalBytes`, `usedBytes`, `freeBytes`, `shots`, `maxShots`,
+and `writeErrors`. Values are refreshed when Settings is opened or when
+the user clicks **Обновить**. The used-space bar covers the complete
+LittleFS partition, including web assets and filesystem metadata,
+not just shot recordings.
+
+The endpoint uses the ShotArchive mutex with a non-blocking acquisition.
+If the archive writer or a USB maintenance upload owns the lock, it
+returns HTTP 503; the user can retry. No status request creates,
+modifies or deletes files.
+
+`writeErrors` counts archive writer failures since the last ESP32
+startup. It is a diagnostic count, **not** the flash's total erase cycles,
+flash wear percentage, or a persistent health indicator.
+
+To deploy, upload the updated ESP32 firmware and the 3 revised web
+assets individually using `tools/upload_web_asset.py` on the isolated
+USB-only test board, rather than overwriting LittleFS. Verify that
+`/api/system/storage` returns valid JSON and that existing shots remain.
+
+Compilation and on-device checks are still required.
