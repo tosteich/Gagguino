@@ -83,6 +83,20 @@
             </article>
             <article class="card">
               <h2>Система</h2>
+              <div class="storage-panel" aria-label="Состояние LittleFS">
+                <div class="storage-heading"><span>Файловая система</span><button class="btn secondary" type="button" id="refreshStorage">Обновить</button></div>
+                <p id="storageStatus" class="muted" role="status" aria-live="polite">Загружаем сведения о LittleFS…</p>
+                <div id="storageDetails" hidden>
+                  <div class="storage-stat"><span>Всего</span><strong id="storageTotal">—</strong></div>
+                  <div class="storage-stat"><span>Использовано</span><strong id="storageUsed">—</strong></div>
+                  <div class="storage-stat"><span>Свободно</span><strong id="storageFree">—</strong></div>
+                  <div class="storage-meter" id="storageMeter" role="progressbar" aria-label="Заполнение LittleFS" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="storageFill"></span></div>
+                  <p class="muted" id="storagePercent">—</p>
+                  <div class="storage-stat"><span>Архив проливов</span><strong id="storageShots">—</strong></div>
+                  <div class="storage-stat"><span>Ошибки сохранения*</span><strong id="storageErrors">—</strong></div>
+                  <p class="hint">* Ошибки записи архива за время работы ESP32 после последней перезагрузки.</p>
+                </div>
+              </div>
               <p class="muted">Перезапуск ESP32 закроет текущее WebSocket-соединение.</p>
               <button class="btn danger" type="button" id="rebootButton">Перезагрузить ESP32</button>
             </article>
