@@ -480,7 +480,7 @@
   function navigate(){
     const page=(location.hash||"#dashboard").slice(1);
     const active=pageLabels()[page]?page:"dashboard";
-    for(const key of Object.keys(labels)) $("page-"+key).hidden=key!==active;
+    for(const key of Object.keys(pageLabels())) $("page-"+key).hidden=key!==active;
     document.querySelectorAll(".nav-link").forEach(a=>{a.classList.toggle("active",a.dataset.page===active);});
     $("pageTitle").textContent=pageLabels()[active];drawCharts();
     if(active==="graphs")refreshArchive();
