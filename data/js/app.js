@@ -349,16 +349,18 @@
     el.textContent=text;el.style.color=error?"#ef8189":"#a0adbf";
   }
   const settingGroups = [
-    {holder:"profileSettingsFields",items:[
-      ["preinfDur","Предсмачивание · время","с",0,600,1],
-      ["preinfPress","Предсмачивание · давление","бар",0,12,0.1],
-      ["holdDur","Набор и удержание · время","с",0,600,1],
-      ["holdPress","Набор и удержание · давление","бар",0,12,0.1],
-      ["declineDur","Снижение · время","с",0,60,1],
-      ["declinePress","Снижение · конечное давление","бар",0,12,0.1]]},
+    {holder:"preinfSettingsFields",items:[
+      ["preinfDur","Длительность","с",0,600,1],
+      ["preinfPress","Давление","бар",0,12,0.1]]},
+    {holder:"holdSettingsFields",items:[
+      ["holdDur","Длительность","с",0,600,1],
+      ["holdPress","Давление","бар",0,12,0.1]]},
+    {holder:"declineSettingsFields",items:[
+      ["declineDur","Длительность","с",0,60,1],
+      ["declinePress","Конечное давление","бар",0,12,0.1]]},
     {holder:"temperatureSettingsFields",items:[
-      ["targetTemp","Температура приготовления","°C",20,105,1],
-      ["steamTemp","Температура пара","°C",100,144,1]]},
+      ["targetTemp","Приготовление","°C",20,105,1],
+      ["steamTemp","Пар","°C",100,144,1]]},
     {holder:"boilerSettingsFields",items:[
       ["pidKp","Kp","",0,100,0.1],["pidKi","Ki","",0,100,0.1],
       ["pidKd","Kd","",0,100,0.1]]},
