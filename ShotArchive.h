@@ -178,6 +178,34 @@ class ShotArchive {
 #endif
 
   bool available() const { return ready_; }
+  uint32_t writeErrors() const { return writeErrors_.load(); }
+
+  // Read-only filesystem status. Request handlers never wait for the writer.
+  // The directory scan is bounded to the retained archive and only runs on demand.
+  bool storageStats(size_t &total, size_t &used, uint16_t &shots) {
+    total = used = 0;
+    shots = 0;
+    if (!ready_ || !mutex_ || xSemaphoreTake(mutex_, 0) != pdTRUE) return false;
+    total = LittleFS.totalBytes();
+    used = LittleFS.usedBytes();
+    File dir = LittleFS.open("/shots");
+    if (dir && dir.isDirectory()) {
+      File file = dir.openNextFile();
+      while (file) {
+        const char *name = strrchr(file.name(), '/');
+        name = name ? name + 1 : file.name();
+        uint32_t id = 0;
+        char suffix = 0;
+        if (sscanf(name, "%8lu.bin%c", &id, &suffix) == 1 && id > 0 &&
+            file.size() >= sizeof(Header)) {
+          ++shots;
+        }
+        file = dir.openNextFile();
+      }
+    }
+    xSemaphoreGive(mutex_);
+    return total > 0;
+  }
 
   // Web handlers only: skip if the background writer is using LittleFS.
   bool list(String &output) {
@@ -255,6 +283,7 @@ class ShotArchive {
   QueueHandle_t pending_=nullptr;
   SemaphoreHandle_t mutex_=nullptr;
   TaskHandle_t writer_=nullptr;
+  std::atomic<uint32_t> writeErrors_{0};
 #ifdef GAGGUINO_SHOT_ARCHIVE_TEST
   std::atomic<uint32_t> testSaved_{0};
   std::atomic<uint32_t> testFailed_{0};
@@ -299,7 +328,10 @@ class ShotArchive {
       }
 #endif
       slots_[slot].state=0;
-      if(!ok)Serial.println("Shot archive: flash write failed");
+      if(!ok) {
+        writeErrors_.fetch_add(1);
+        Serial.println("Shot archive: flash write failed");
+      }
     }
   }
   void prune() {
