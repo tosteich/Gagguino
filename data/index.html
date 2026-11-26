@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0b111a">
   <title>Gagguino — Espresso Monitor</title>
-  <link rel="stylesheet" href="/css/style.css?v=heat-caption1">
-  <script defer src="/js/app.js?v=heat-caption1"></script>
+  <link rel="stylesheet" href="/css/style.css?v=archive-collapse1">
+  <script defer src="/js/app.js?v=archive-collapse1"></script>
 </head>
 <body>
   <div class="shell">
@@ -47,7 +47,10 @@
         <article class="card archive-card">
           <div class="section-head"><div><h2><span data-i18n="s23">Архів приготувань</span></h2><p><span data-i18n="s24">До 60 проливів тривалістю від 15 секунд, збережених ESP32 у LittleFS</span></p></div><div class="chart-actions"><button class="btn secondary" id="refreshShots" type="button"><span data-i18n="s25">Оновити</span></button><button class="btn secondary" id="returnLive" type="button" hidden><span data-i18n="s26">Повернутися до LIVE</span></button><button class="btn secondary" id="downloadShot" type="button" hidden><span data-i18n="s27">Завантажити CSV</span></button></div></div>
           <p class="hint" id="archiveStatus" role="status"><span data-i18n="s28">Завантажуємо записи…</span></p>
-          <div id="shotList" class="shot-list"></div>
+          <details class="archive-disclosure">
+            <summary><span data-i18n="s61">Список проливів</span><span class="archive-chevron" aria-hidden="true"></span></summary>
+            <div id="shotList" class="shot-list"></div>
+          </details>
           <p class="hint"><span data-i18n="s29">Повне перезаписування розділу LittleFS може стерти архів. Оновлюйте окремі вебфайли через USB.</span></p>
         </article>
       </section>
