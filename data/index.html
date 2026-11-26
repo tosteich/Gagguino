@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#10141c">
+  <meta name="theme-color" content="#0b111a">
   <title>Gagguino — Espresso Monitor</title>
   <link rel="stylesheet" href="/css/style.css">
   <script defer src="/js/app.js"></script>
@@ -11,27 +11,27 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <a class="brand" href="#dashboard"><span class="brand-icon">☕</span><span><strong>Gagguino</strong><small>ESPRESSO MONITOR</small></span></a>
+      <a class="brand" href="#dashboard"><span class="brand-icon" aria-hidden="true">◉</span><span><strong>Gagguino</strong><small>ESPRESSO MONITOR</small></span></a>
       <nav aria-label="Разделы">
-        <a class="nav-link active" href="#dashboard" data-page="dashboard">Обзор</a>
-        <a class="nav-link" href="#graphs" data-page="graphs">Графики</a>
-        <a class="nav-link" href="#settings" data-page="settings">Настройки</a>
+        <a class="nav-link active" href="#dashboard" data-page="dashboard"><span class="nav-symbol" aria-hidden="true">◫</span> Обзор</a>
+        <a class="nav-link" href="#graphs" data-page="graphs"><span class="nav-symbol" aria-hidden="true">⌁</span> Графики</a>
+        <a class="nav-link" href="#settings" data-page="settings"><span class="nav-symbol" aria-hidden="true">⚙</span> Настройки</a>
       </nav>
       <div class="sidebar-foot"><span id="connectionDot" class="dot"></span><span id="connectionLabel">Подключение…</span><small>Локальный веб-интерфейс ESP32</small></div>
     </aside>
     <main class="content">
       <header class="topbar">
-        <div><p class="eyebrow">GAGGIA ESPRESSO CONTROLLER</p><h1 id="pageTitle">Обзор</h1></div>
+        <div><p class="eyebrow">GAGGIA <span class="eyebrow-separator">/</span> ESPRESSO CONTROLLER</p><h1 id="pageTitle">Обзор</h1></div>
         <div class="header-actions"><span id="demoBadge" class="demo-badge" hidden>DEMO · СИМУЛЯЦИЯ</span><button type="button" class="btn secondary" id="demoToggle" aria-pressed="false">Включить DEMO</button><span id="connectionBadge" class="status-badge">Нет соединения</span></div>
       </header>
 
       <div id="demoNotice" class="demo-notice" role="status" hidden>DEMO: показания и графики искусственные. Команды ESP32 отключены.</div>
       <section id="page-dashboard" class="page">
         <div class="metrics">
-          <article class="card metric"><span class="metric-label">Температура бойлера</span><div class="metric-value temperature"><span id="temperature">—</span><small>°C</small></div><span class="metric-sub">Цель <b id="targetTemperature">—</b> °C</span></article>
-          <article class="card metric"><span class="metric-label">Давление</span><div class="metric-value pressure"><span id="pressure">—</span><small>бар</small></div><span class="metric-sub">Текущее измерение</span></article>
-          <article class="card metric"><span class="metric-label">Время currentTime</span><div class="metric-value"><span id="currentTime">00:00</span></div><span class="metric-sub">С запуска / приготовления / завершения</span></article>
-          <article class="card metric"><span class="metric-label">Нагрев</span><div class="metric-value"><span id="heatPower">—</span><small>%</small></div><div class="power-track"><div id="heatBar" class="power-fill"></div></div></article>
+          <article class="card metric"><span class="metric-label"><span class="metric-marker temp-marker"></span>Температура бойлера</span><div class="metric-value temperature"><span id="temperature">—</span><small>°C</small></div><span class="metric-sub">Цель <b id="targetTemperature">—</b> °C</span></article>
+          <article class="card metric"><span class="metric-label"><span class="metric-marker press-marker"></span>Давление</span><div class="metric-value pressure"><span id="pressure">—</span><small>бар</small></div><span class="metric-sub">Текущее измерение</span></article>
+          <article class="card metric"><span class="metric-label"><span class="metric-marker time-marker"></span>Время</span><div class="metric-value"><span id="currentTime">00:00</span></div><span class="metric-sub">Таймер приготовления</span></article>
+          <article class="card metric"><span class="metric-label"><span class="metric-marker heat-marker"></span>Нагрев</span><div class="metric-value"><span id="heatPower">—</span><small>%</small></div><div class="power-track"><div id="heatBar" class="power-fill"></div></div></article>
         </div>
         <article class="card chart-card">
           <div class="section-head"><div><h2>Живые данные</h2><p>Температура и давление в реальном времени</p></div><div class="legend"><span><i class="legend-temp"></i>°C</span><span><i class="legend-pressure"></i>бар</span></div></div>
