@@ -351,6 +351,24 @@
       ? shotDateFormatter.format(new Date(seconds*1000))
       : t("dateUnknown");
   }
+  function renderShotList(){
+    const container=$("shotList");container.replaceChildren();
+    for(const shot of archiveShots){
+      if(!Number.isSafeInteger(shot.id)||shot.id<=0)continue;
+      const row=document.createElement("div");row.className="shot-row";
+      if(shot.id===selectedArchiveId)row.classList.add("selected");
+      const description=document.createElement("div");
+      const label=document.createElement("strong");
+      label.textContent=t("shot")+shot.id;
+      const details=document.createElement("small");
+      details.textContent=shotStartedAt(shot)+" · "+(shot.durationMs/1000).toFixed(1)+" "+t("sec")+" · "+shot.samples+" "+t("samples");
+      description.append(label,details);
+      const button=document.createElement("button");
+      button.type="button";button.className="btn secondary";button.textContent=t("view");
+      button.addEventListener("click",()=>viewArchive(shot.id));
+      row.append(description,button);container.appendChild(row);
+    }
+  }
   async function refreshArchive() {
     $("archiveStatus").textContent=t("loadingArchive");
     try {
@@ -360,22 +378,7 @@
       if(!Array.isArray(list))throw Error(t("invalidServer"));
       archiveShots=list.sort((a,b)=>b.id-a.id);
       $("archiveStatus").textContent=t("archiveCountPrefix")+archiveShots.length+t("archiveCountSuffix");
-      const container=$("shotList");container.replaceChildren();
-      for(const shot of archiveShots){
-        if(!Number.isSafeInteger(shot.id)||shot.id<=0)continue;
-        const row=document.createElement("div");row.className="shot-row";
-        if(shot.id===selectedArchiveId)row.classList.add("selected");
-        const description=document.createElement("div");
-        const label=document.createElement("strong");
-        label.textContent=t("shot")+shot.id;
-        const details=document.createElement("small");
-        details.textContent=shotStartedAt(shot)+" · "+(shot.durationMs/1000).toFixed(1)+" "+t("sec")+" · "+shot.samples+" "+t("samples");
-        description.append(label,details);
-        const button=document.createElement("button");
-        button.type="button";button.className="btn secondary";button.textContent=t("view");
-        button.addEventListener("click",()=>viewArchive(shot.id));
-        row.append(description,button);container.appendChild(row);
-      }
+      renderShotList();
     } catch(err){
       $("archiveStatus").textContent=t("archiveLoadError")+err.message;
     }
@@ -424,17 +427,17 @@
   }
   const settingGroups = [
     {holder:"preinfSettingsFields",items:[
-      ["preinfDur","Длительность","с",0,600,1],
-      ["preinfPress","Давление","бар",0,12,0.1]]},
+      ["preinfDur","Duration","s",0,600,1],
+      ["preinfPress","Pressure","bar",0,12,0.1]]},
     {holder:"holdSettingsFields",items:[
-      ["holdDur","Длительность","с",0,600,1],
-      ["holdPress","Давление","бар",0,12,0.1]]},
+      ["holdDur","Duration","s",0,600,1],
+      ["holdPress","Pressure","bar",0,12,0.1]]},
     {holder:"declineSettingsFields",items:[
-      ["declineDur","Длительность","с",0,60,1],
-      ["declinePress","Конечное давление","бар",0,12,0.1]]},
+      ["declineDur","Duration","s",0,60,1],
+      ["declinePress","Final pressure","bar",0,12,0.1]]},
     {holder:"temperatureSettingsFields",items:[
-      ["targetTemp","Приготовление","°C",20,105,1],
-      ["steamTemp","Пар","°C",100,144,1]]},
+      ["targetTemp","Brew","°C",20,105,1],
+      ["steamTemp","Steam","°C",100,144,1]]},
     {holder:"boilerSettingsFields",items:[
       ["pidKp","Kp","",0,100,0.1],["pidKi","Ki","",0,100,0.1],
       ["pidKd","Kd","",0,100,0.1]]},
@@ -557,7 +560,7 @@
       $("storageMeter").setAttribute("aria-valuenow",String(Math.round(percent)));
       $("storagePercent").textContent=percent.toFixed(1)+t("usedPercent");
       $("storageDetails").hidden=false;
-      status.textContent="LittleFS доступна";
+      status.textContent=t("fsAvailable");
     }catch(error) {
       $("storageDetails").hidden=true;
       status.textContent=t("fsFailed")+error.message;
@@ -586,5 +589,5 @@
   $("downloadShot").addEventListener("click",downloadArchiveCsv);
   window.addEventListener("hashchange",navigate);
   window.addEventListener("resize",drawCharts);
-  buildSettingsFields();initChartPointers();updateArchiveButtons();navigate();publish();connect();
+  buildSettingsFields();initChartPointers();updateArchiveButtons();navigate();publish();connect();applyLanguage(language);
 })();
