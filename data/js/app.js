@@ -324,7 +324,7 @@
     document.querySelectorAll(".nav-link").forEach(a=>{a.classList.toggle("active",a.dataset.page===active);});
     $("pageTitle").textContent=labels[active];drawCharts();
     if(active==="graphs")refreshArchive();
-    if(active==="settings")reloadAllSettings();
+    if(active==="settings"){reloadAllSettings();refreshStorage();}
   }
   function message(text,error=false){const el=$("allSettingsStatus");el.textContent=text;el.style.color=error?"#ef8189":"#a0adbf";}
   const settingGroups = [
