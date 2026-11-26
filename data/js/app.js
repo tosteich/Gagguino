@@ -29,8 +29,15 @@
     return {temp:93.2+0.45*Math.sin(t/5)-0.1*Math.sin(t*1.7),
             press:Math.max(0,pressure),power:Math.max(0,Math.min(100,45+23*Math.sin(t/4))),time:t};
   }
+  function validLiveTemperature(value) {
+    // Firmware publishes -50 C when LMT01 data is unavailable.
+    return Number.isFinite(value) && value > -40 && value < 150;
+  }
   function showReading(value) {
-    $("temperature").textContent=fmt(value.temp);
+    const tempOk=validLiveTemperature(value.temp);
+    $("temperature").textContent=tempOk?fmt(value.temp):"—";
+    $("tempSensorStatus").hidden=demo||tempOk;
+    $("temperature").closest(".metric").classList.toggle("sensor-unavailable",!demo&&!tempOk);
     $("pressure").textContent=fmt(value.press);
     $("currentTime").textContent=clock(value.time);
     $("heatPower").textContent=value.power===null?"—":String(Math.round(value.power));
@@ -104,10 +111,10 @@
     } else if(msg.name==="updateInfo"){
       lastInfo.temp=number(msg.currentTemp);lastInfo.press=number(msg.currentPress);
       lastInfo.power=number(msg.currentPower);lastInfo.time=number(msg.currentTime)||0;
-      realSamples.push({t:Date.now()/1000,temp:lastInfo.temp,press:lastInfo.press});
+      realSamples.push({t:Date.now()/1000,temp:validLiveTemperature(lastInfo.temp)?lastInfo.temp:null,press:lastInfo.press});
       if(realSamples.length>MAX_POINTS)realSamples.shift();
       if(!demo){
-        chartSamples.push({t:Date.now()/1000,temp:lastInfo.temp,press:lastInfo.press});
+        chartSamples.push({t:Date.now()/1000,temp:validLiveTemperature(lastInfo.temp)?lastInfo.temp:null,press:lastInfo.press});
         if(chartSamples.length>MAX_POINTS)chartSamples.shift();
         publish();drawCharts();
       }
