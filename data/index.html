@@ -28,7 +28,7 @@
       <div id="demoNotice" class="demo-notice" role="status" hidden>DEMO: показания и графики искусственные. Команды ESP32 отключены.</div>
       <section id="page-dashboard" class="page">
         <div class="metrics">
-          <article class="card metric"><span class="metric-label"><span class="metric-marker temp-marker"></span>Температура бойлера</span><div class="metric-value temperature"><span id="temperature">—</span><small>°C</small></div><span class="metric-sub">Цель <b id="targetTemperature">—</b> °C</span></article>
+          <article class="card metric"><span class="metric-label"><span class="metric-marker temp-marker"></span>Температура бойлера</span><div class="metric-value temperature"><span id="temperature">—</span><small>°C</small></div><span class="metric-sub">Цель <b id="targetTemperature">—</b> °C</span><span class="sensor-note" id="tempSensorStatus" hidden>Нет данных с датчика температуры</span></article>
           <article class="card metric"><span class="metric-label"><span class="metric-marker press-marker"></span>Давление</span><div class="metric-value pressure"><span id="pressure">—</span><small>бар</small></div><span class="metric-sub">Текущее измерение</span></article>
           <article class="card metric"><span class="metric-label"><span class="metric-marker time-marker"></span>Время</span><div class="metric-value"><span id="currentTime">00:00</span></div><span class="metric-sub">Таймер приготовления</span></article>
           <article class="card metric"><span class="metric-label"><span class="metric-marker heat-marker"></span>Нагрев</span><div class="metric-value"><span id="heatPower">—</span><small>%</small></div><div class="power-track"><div id="heatBar" class="power-fill"></div></div></article>
@@ -36,7 +36,7 @@
         <article class="card chart-card">
           <div class="section-head"><div><h2>Живые данные</h2><p>Температура и давление в реальном времени</p></div><div class="legend"><span><i class="legend-temp"></i>°C</span><span><i class="legend-pressure"></i>бар</span></div></div>
           <div class="chart-wrap"><canvas id="liveChart" role="img" aria-label="График температуры и давления"></canvas><div class="chart-tooltip" id="liveTooltip" hidden></div></div>
-          <p class="hint">До 60 последних измерений. Наведи курсор или коснись линии, чтобы увидеть точные значения. Время по горизонтали — с начала записи в браузере.</p>
+          <p class="hint">До 60 последних измерений · наведи курсор или коснись графика для подробностей. Время — с начала записи в браузере.</p>
         </article>
         <div class="info-grid">
           <article class="card"><h2>Подключение</h2><p id="connectionText" class="muted">Ожидание данных WebSocket…</p></article>
