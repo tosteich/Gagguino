@@ -234,3 +234,8 @@ footer{padding-top:14px;border-top:1px solid #2a3645}
 .system-grid .storage-panel{margin-bottom:24px}
 #systemActionStatus:empty{display:none}
 @media(max-width:750px){.system-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Inline outline navigation icons (no external font or library). */
+.nav-symbol svg{display:block;width:20px;height:20px;flex:none}
+.nav-link.active .nav-symbol svg{stroke-width:2}
+@media(max-width:440px){.nav-symbol svg{width:18px;height:18px}}
