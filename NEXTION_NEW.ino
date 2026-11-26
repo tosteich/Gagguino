@@ -1,11 +1,8 @@
 
 #include <atomic>
 #include <WiFi.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
 #include <Preferences.h>
 #include <ESPAsyncWebServer.h>
-#include <ESP32_FTPClient.h>
 #include <AsyncTCP.h>
 #include "GaggiaPid.h"
 #include "webpage.h"
@@ -50,9 +47,6 @@
 byte graphTemp=0;
 byte graphPress=0;
 
-char ftp_server[] = "10.0.0.1";
-char ftp_user[] = "gaggia";
-char ftp_pass[] = "123";
 const char* ssid = "KKK";            //Name of your home Wi-Fi
 const char* password = "muzzleoid";  //Password of your home Wi-Fi
 // AsyncTCP callbacks run in another FreeRTOS task.
@@ -100,8 +94,6 @@ setting settings[] {
 
 Preferences preferences;
 EasyNex myNex(Serial2);
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP);
 
 GaggiaPid boilerPid(SENSORS_PERIOD);
 GaggiaPid pumpPid(PUMP_PID_PERIOD);
@@ -118,7 +110,6 @@ Timer displayTimer(1000);
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-ESP32_FTPClient ftp(ftp_server, ftp_user, ftp_pass, 5000, 2);
 
 StopWatch stopWatch;
 ShotArchive shotArchive;
