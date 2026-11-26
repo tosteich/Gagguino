@@ -24,3 +24,15 @@
 #allSettingsForm .card h2{margin-bottom:12px}
 #allSettingsForm button{margin:5px 7px 5px 0}
 @media(max-width:550px){.web-setting-row{grid-template-columns:1fr;gap:4px}.web-setting-controls{max-width:200px}}
+
+/* LittleFS diagnostics in the System card */
+.storage-panel{margin:15px 0 22px;padding:15px;border:1px solid var(--border);border-radius:12px;background:var(--panel2)}
+.storage-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:650}
+.storage-heading .btn{margin:0!important}
+.storage-stat{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)}
+.storage-stat span{color:var(--muted)}
+.storage-stat strong{font-variant-numeric:tabular-nums}
+.storage-meter{height:10px;margin-top:15px;border-radius:10px;background:#364253;overflow:hidden}
+.storage-meter span{display:block;width:0;height:100%;border-radius:10px;background:var(--green);transition:width .2s}
+#storagePercent{font-size:12px;margin:7px 0}
+#storageDetails[hidden]{display:none!important}
