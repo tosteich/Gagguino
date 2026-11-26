@@ -1,6 +1,6 @@
 # Local shot archive (experimental)
 
-Implemented on `feature/dark-web-ui`. The verified firmware branch and FTP configuration remain untouched.
+Implemented on `feature/dark-web-ui`. Shot history is stored in LittleFS; the legacy FTP client and logger have been removed.
 
 ## Design
 - Start/stop detection: existing `StopWatch.getIsFlow()`.
@@ -47,8 +47,9 @@ uint8 heatPercent, uint8 pumpPercent`.
   If SNTP has not synchronized, the timestamp remains zero (no invented dates).
 - The format has a header and length validation, but no CRC. Flash corruption
   beyond structural validation is not yet detected.
-- FTP remains enabled/unchanged; disable it only after on-device archive
-  recording and reads are verified.
+- FTP client, periodic FTP logger, and its separate NTPClient initialization
+  have been removed. The existing ESP32 SNTP clock (`configTime`) remains
+  responsible for UTC timestamps on new shot records.
 - Not verified with an Arduino compile or real shot yet. Test on an isolated
   ESP32 board first, then a hardware-in-the-loop setup with mains-safe wiring.
 - Retention should be tested across boots and from 60 to 61 saved shots.
