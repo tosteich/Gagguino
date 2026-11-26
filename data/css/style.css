@@ -335,3 +335,18 @@ footer{padding-top:14px;border-top:1px solid #2a3645}
   .settings-redesign .web-setting-controls input{padding:9px 7px}
   .settings-redesign .web-setting-controls span{min-width:0}
 }
+
+/* Dashboard metric icons replace the former colored indicator dots. */
+.metric-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;flex:0 0 22px;
+}
+.metric-icon svg{display:block;width:21px;height:21px}
+.temp-icon{color:var(--coffee)}
+.press-icon{color:var(--blue)}
+.time-icon{color:#a8b8cf}
+.heat-icon{color:var(--green)}
+@media(max-width:440px){
+  .metric-icon{width:19px;height:19px;flex-basis:19px}
+  .metric-icon svg{width:18px;height:18px}
+}
