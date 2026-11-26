@@ -229,7 +229,7 @@ footer{padding-top:14px;border-top:1px solid #2a3645}
 .metric.sensor-unavailable:before{background:#718198}
 
 /* Dedicated sidebar System page */
-.system-grid{display:grid;grid-template-columns:minmax(0,720px);gap:20px}
+.system-grid{display:grid;grid-template-columns:minmax(0,980px);gap:20px}
 .system-grid>.card{min-width:0}
 .system-grid .storage-panel{margin-bottom:24px}
 #systemActionStatus:empty{display:none}
