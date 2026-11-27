@@ -123,6 +123,12 @@
                   <p class="hint"><span data-i18n="s56">* Помилки запису архіву з моменту останнього перезапуску ESP32.</span></p>
                 </div>
               </div>
+              <div class="storage-panel" style="margin-top:20px">
+                <div class="storage-heading"><strong id="thermalTraceHeading">Теплова діагностика</strong><button class="btn secondary" type="button" id="refreshThermalTrace">Оновити</button></div>
+                <p id="thermalTraceStatus" class="muted" role="status" aria-live="polite">Журнал температури: очікування</p>
+                <p class="hint" id="thermalTraceHint">20 с до проливу, до 120 с проливу та 60 с після. Зберігається тільки в RAM до наступного проливу або перезапуску ESP32.</p>
+                <button class="btn secondary" type="button" id="downloadThermalTrace" disabled>Завантажити CSV</button>
+              </div>
               <p class="muted"><span data-i18n="s57">Перезапуск ESP32 розірве поточне з'єднання WebSocket.</span></p>
               <button class="btn danger" type="button" id="rebootButton"><span data-i18n="s58">Перезапустити ESP32</span></button>
               <p id="systemActionStatus" class="muted" role="status" aria-live="polite"></p>
