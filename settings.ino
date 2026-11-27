@@ -116,6 +116,9 @@ void updateBoilerPidSettings() {
   publishedBoilerKd.store(settings[PID_KD].value);
   // New tuning/target must not inherit integral or derivative history.
   boilerPid.resetState();
+#ifndef GAGGUINO_EXPERIMENTAL_BOILER_PID
+  if (shadowBoilerInitialized) shadowBoilerPid.resetState();
+#endif
   boilerPid.setupPid(settings[PID_KP].value / 10.f,  
                      settings[PID_KI].value / 10.f,  
                      settings[PID_KD].value / 10.f,
