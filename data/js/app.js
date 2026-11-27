@@ -165,6 +165,27 @@
   let connectionTimeout=null;
   let reconnectDelay=1500;
   let connectionPending=false;
+  // Firmware publishes updateInfo once per second. TCP/WebSocket can remain
+  // apparently OPEN for minutes after sudden ESP32 power loss, so detect
+  // silence at the application layer rather than waiting for onclose.
+  const DATA_TIMEOUT_MS=6000;
+  let lastUpdateAt=0;
+  function clearLiveReadings(){
+    lastInfo={temp:null,press:null,power:null,time:0};
+    publish();
+  }
+  function disconnectStaleSocket(socket,reason){
+    if(ws!==socket)return;
+    console.warn("Gagguino: live feed lost:",reason);
+    ws=null; // allow reconnect even when TCP still reports OPEN
+    clearTimeout(connectionTimeout);
+    connectionPending=false;
+    lastUpdateAt=0;
+    setStatus(false);
+    clearLiveReadings();
+    try{socket.close();}catch(_){}
+    scheduleReconnect();
+  }
   function scheduleReconnect(){
     clearTimeout(reconnectHandle);
     reconnectHandle=setTimeout(connect,reconnectDelay);
@@ -175,6 +196,7 @@
     if(ws && (ws.readyState===WebSocket.OPEN || ws.readyState===WebSocket.CONNECTING))return;
     const url=(location.protocol==="https:"?"wss":"ws")+"://"+location.host+"/ws";
     connectionPending=true;
+    lastUpdateAt=0;
     setStatus(false);
     let socket;
     try{socket=new WebSocket(url);}catch(error){
@@ -185,22 +207,37 @@
     clearTimeout(connectionTimeout);
     connectionTimeout=setTimeout(()=>{
       if(ws===socket && socket.readyState===WebSocket.CONNECTING){
-        console.warn("Gagguino: WebSocket handshake timed out");
-        socket.close();
+        disconnectStaleSocket(socket,"WebSocket handshake timed out");
       }
     },8000);
     socket.onopen=()=>{
       if(ws!==socket)return;
       clearTimeout(connectionTimeout);
-      connectionPending=false;reconnectDelay=1500;
-      setStatus(true);socket.send("initInfo");
+      // A successful handshake is not proof the live sensor feed is running.
+      // Keep "connecting" until the first actual updateInfo arrives.
+      lastUpdateAt=Date.now();
+      reconnectDelay=1500;
+      socket.send("initInfo");
     };
-    socket.onmessage=event=>{if(ws===socket)onMessage(event);};
+    socket.onmessage=event=>{
+      if(ws!==socket)return;
+      let msg;
+      try{msg=JSON.parse(event.data);}catch{return;}
+      if(msg.name==="updateInfo"){
+        lastUpdateAt=Date.now();
+        connectionPending=false;
+        if(!connected)setStatus(true);
+      }
+      onMessage(event);
+    };
     socket.onerror=()=>{console.warn("Gagguino: WebSocket error at",url);};
     socket.onclose=event=>{
       if(ws!==socket)return;
       clearTimeout(connectionTimeout);
+      ws=null;
+      lastUpdateAt=0;
       connectionPending=false;setStatus(false);
+      clearLiveReadings();
       console.warn("Gagguino: WebSocket closed",event.code,event.reason||"");
       scheduleReconnect();
     };
@@ -209,8 +246,21 @@
     if(!ws || ws.readyState>=WebSocket.CLOSING)connect();
   });
   document.addEventListener("visibilitychange",()=>{
-    if(!document.hidden && (!ws || ws.readyState>=WebSocket.CLOSING))connect();
+    if(document.hidden)return;
+    if(ws && ws.readyState===WebSocket.OPEN &&
+       lastUpdateAt && Date.now()-lastUpdateAt>DATA_TIMEOUT_MS){
+      disconnectStaleSocket(ws,"stale after tab resume");
+    } else if(!ws || ws.readyState>=WebSocket.CLOSING)connect();
   });
+  // Watchdog runs while connected or during the wait for first telemetry.
+  // A reconnect is scheduled even if the OS has not noticed TCP failure.
+  setInterval(()=>{
+    if(!ws)return;
+    if(ws.readyState===WebSocket.OPEN && lastUpdateAt &&
+       Date.now()-lastUpdateAt>DATA_TIMEOUT_MS){
+      disconnectStaleSocket(ws,"no updateInfo for 6 seconds");
+    }
+  },1000);
   function visibleSamples(id) {
     if(id==="detailChart" && selectedArchive!==null)return selectedArchive;
     return id==="detailChart" && frozenSamples!==null?frozenSamples:chartSamples;
