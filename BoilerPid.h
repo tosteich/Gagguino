@@ -2,35 +2,37 @@
 #include <Arduino.h>
 #include <math.h>
 
-// EXPERIMENTAL boiler-only PID. Not used in the normal firmware build.
-// Output remains 0..100%; sampling cadence is provided by the caller.
-// Derivative is taken on the measurement with a negative sign to avoid
-// setpoint kick. Conditional integration avoids windup against limits.
-// Do not enable on a mains-powered boiler before independent bench tests.
+// EXPERIMENTAL boiler PID, currently used only for shadow diagnostics.
+// The active boiler controller and the pump still use the unchanged GaggiaPid.
+// Do NOT enable this as the actuator controller without separate hardware testing.
 class BoilerPid {
 private:
   float integral = 0.0f;
   float lastP_ = 0.0f;
   float lastD_ = 0.0f;
-  float lastMeasurement = 0.0f;
-  bool haveLastMeasurement = false;
+  float lastMeasurement_ = 0.0f;
+  float filteredRate_ = 0.0f;
+  bool haveLastMeasurement_ = false;
   float kp = 0.0f, ki = 0.0f, kd = 0.0f;
   float setPoint = 0.0f;
   const float periodSec;
-  static constexpr float maxPower = 100.0f;
 
-  static float clampPower(float value) {
-    return value < 0.0f ? 0.0f : (value > maxPower ? maxPower : value);
+  static constexpr float maxPower = 100.0f;
+  // Initial diagnostic-only parameters; NOT validated boiler tuning.
+  static constexpr float maxIntegral = 20.0f;
+  static constexpr float derivativeFilterSeconds = 1.5f;
+  static constexpr float maxDerivativePower = 30.0f;
+  static constexpr float aboveTargetUnwindSeconds = 5.0f;
+
+  static float clamp(float value, float low, float high) {
+    return value < low ? low : (value > high ? high : value);
   }
 
 public:
   explicit BoilerPid(int periodMs) : periodSec(periodMs / 1000.0f) {}
 
   void setupPid(float Kp, float Ki, float Kd, float targetPoint) {
-    kp = Kp;
-    ki = Ki;
-    kd = Kd;
-    setPoint = targetPoint;
+    kp = Kp; ki = Ki; kd = Kd; setPoint = targetPoint;
     resetState();
   }
 
@@ -50,8 +52,9 @@ public:
     integral = 0.0f;
     lastP_ = 0.0f;
     lastD_ = 0.0f;
-    lastMeasurement = 0.0f;
-    haveLastMeasurement = false;
+    lastMeasurement_ = 0.0f;
+    filteredRate_ = 0.0f;
+    haveLastMeasurement_ = false;
   }
 
   int getResult(float measurement) {
@@ -63,23 +66,32 @@ public:
     }
 
     const float error = setPoint - measurement;
-    const float proportional = kp * error;
-    const float derivative = haveLastMeasurement
-        ? -kd * (measurement - lastMeasurement) / periodSec
-        : 0.0f;
-    lastMeasurement = measurement;
-    haveLastMeasurement = true;
+    lastP_ = kp * error;
 
-    lastP_ = proportional;
-    lastD_ = derivative;
-    const float withoutNewIntegral = proportional + derivative + integral;
-    const float proposedIntegral = integral + ki * periodSec * error;
-    // Do not accumulate while already saturated in the same direction;
-    // allow integral to unwind when error points back into the output range.
-    if (!((withoutNewIntegral >= maxPower && error > 0.0f) ||
-          (withoutNewIntegral <= 0.0f && error < 0.0f))) {
-      integral = clampPower(proposedIntegral);
+    // Derivative on measured temperature, low-pass filtered to suppress
+    // LMT01 quantization spikes. A setpoint change cannot kick this term.
+    if (haveLastMeasurement_) {
+      const float rawRate = (measurement - lastMeasurement_) / periodSec;
+      const float alpha = periodSec / (derivativeFilterSeconds + periodSec);
+      filteredRate_ += alpha * (rawRate - filteredRate_);
     }
-    return static_cast<int>(clampPower(proportional + derivative + integral));
+    lastMeasurement_ = measurement;
+    haveLastMeasurement_ = true;
+    lastD_ = clamp(-kd * filteredRate_, -maxDerivativePower, maxDerivativePower);
+
+    const float withoutNewIntegral = lastP_ + lastD_ + integral;
+    if (error < 0.0f) {
+      // Do not let old positive integral sustain prolonged heating
+      // above target. Exponential bleed plus ordinary negative error.
+      const float bleed = clamp(periodSec / aboveTargetUnwindSeconds, 0.0f, 1.0f);
+      integral *= 1.0f - bleed;
+    }
+    const float delta = ki * periodSec * error;
+    // Conditional integration while saturated; always permit unwinding.
+    if (!((withoutNewIntegral >= maxPower && delta > 0.0f) ||
+          (withoutNewIntegral <= 0.0f && delta < 0.0f))) {
+      integral = clamp(integral + delta, 0.0f, maxIntegral);
+    }
+    return static_cast<int>(clamp(lastP_ + integral + lastD_, 0.0f, maxPower));
   }
 };
