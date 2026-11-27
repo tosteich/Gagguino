@@ -37,6 +37,31 @@ of closed-loop temperatures.
   machine mains power**. Do not leave it unattended during warm-up, brewing,
   or the post-brew thermal recovery.
 
+## Steam-to-brew cooldown (fixed 2026-11-27)
+
+Steam mode targets 135 C, while normal brewing targets 93 C. Previously,
+releasing the steam switch immediately applied the `target + 5 C` relative
+trip at the new target and permanently disabled heat even after reaching
+88 C. This was a false positive caused by an expected mode transition.
+
+Now the steam-to-brew transition explicitly begins a passive cooldown:
+- Heater command is forced to **0%** while temperature remains above
+  the brew target; the relative `target + 5 C` trip is deferred.
+- Once temperature reaches the brew target, cooldown ends and the
+  normal boiler PID and relative safety threshold resume.
+- The independent absolute 140 C cutoff and invalid-reading safety
+  remain active during cooldown.
+- An overtemperature fault that already latched is **never cleared**
+  by changing modes. If the current firmware already latched the fault,
+  it requires updating firmware and a controlled power cycle after
+  diagnosing the cause; do not repeatedly reboot to bypass safety.
+
+A reboot that begins with the boiler still hotter than the brew target
+is not the same as a recorded steam-to-brew transition; the relative
+threshold may latch during startup. Let the machine cool and verify
+the actual sensor reading before restarting. This software protection is
+not a substitute for the hardware thermal cutoff.
+
 ## Software backup cutoff in experimental mode
 - A **latched** heater-off trip at `temperature >= target + 5 C`, or
   `temperature >= 140 C`, or an invalid target in the experimental safety gate.
