@@ -1,6 +1,12 @@
-# Experimental boiler PID machine validation
+# Boiler PID selection, monitoring and rollback
 
-**State on `feature/dark-web-ui`: experimental BoilerPid ENABLED for the boiler only.**
+**Decision recorded 2026-11-27:** keep the new `BoilerPid` active for the
+boiler, without further gain changes. In one supervised approximately 45s
+brew at target 93 C, measured boiler temperature during brew was
+92.44..93.13 C. A post-brew dip is acceptable for the current operating
+objective; it is not a reason to add feed-forward or increase Ki.
+
+**State on `feature/dark-web-ui`: `BoilerPid` enabled for the boiler only.**
 The existing `GaggiaPid` is unchanged for pump pressure regulation.
 
 ## Exact mode selection / rollback
