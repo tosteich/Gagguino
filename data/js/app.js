@@ -127,7 +127,7 @@
     connected=value;
     $("connectionBadge").textContent=value?t("connected"):connectionPending?t("connecting"):t("disconnected");
     $("connectionBadge").classList.toggle("ok",value);
-    $("connectionLabel").textContent=value?t("online"):t("connecting");
+    $("connectionLabel").textContent=value?t("online"):connectionPending?t("connecting"):t("disconnected");
     $("connectionDot").classList.toggle("ok",value);
   }
   function number(v) { const n=Number(v);return Number.isFinite(n)?n:null; }
