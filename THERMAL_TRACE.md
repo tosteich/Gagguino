@@ -29,7 +29,11 @@ The existing `GaggiaPid` **alone drives the heater**. An additional
 `BoilerPid` gets the exact same full-precision LMT01 reading at the same
 200 ms tick, with the current boiler PID coefficients and target. It
 calculates a counterfactual command for comparison but **never controls
-any actuator**. Boiler settings updates, steam mode changes, and sensor
+any actuator**. The current shadow implementation applies a 1.5s derivative
+low-pass filter (D limited to +/-30 output points), limits the integrator
+to 20 output points, and exponentially bleeds it over a 5s timescale when
+temperature exceeds the target. These constants are exploratory shadow
+parameters, **not validated heater settings**. Boiler settings updates, steam mode changes, and sensor
 faults reset its historical state. The pump stays on the unchanged
 `GaggiaPid` implementation.
 
