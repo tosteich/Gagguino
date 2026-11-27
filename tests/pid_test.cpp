@@ -7,6 +7,9 @@ int main() {
   GaggiaPid integral(200);
   integral.setupPid(0, 1, 0, 100);
   assert(integral.getResult(90) == 2);
+  assert(integral.getPTerm() == 0.0f);
+  assert(integral.getDTerm() == 0.0f);
+  assert(integral.getITerm() == 2.0f);
   assert(integral.getResult(90) == 4);
   integral.resetState();
   assert(integral.getResult(90) == 2);
