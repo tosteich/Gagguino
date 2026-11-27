@@ -6,6 +6,11 @@ void setup(void) {
   pinMode(LMT_PIN, INPUT);
 
   Serial.begin(9600);
+#ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
+  Serial.println("BOILER_PID_MODE=EXPERIMENTAL; SHADOW=LEGACY");
+#else
+  Serial.println("BOILER_PID_MODE=LEGACY; SHADOW=EXPERIMENTAL");
+#endif
   // Nextion wiring: ESP32 UART2 RX=GPIO16, TX=GPIO17.
   // Explicit pins are mandatory: the core's defaults may assign TX to
   // GPIO25, which is reserved for the LMT01 PCNT input.
