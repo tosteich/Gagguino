@@ -10,6 +10,8 @@
 class BoilerPid {
 private:
   float integral = 0.0f;
+  float lastP_ = 0.0f;
+  float lastD_ = 0.0f;
   float lastMeasurement = 0.0f;
   bool haveLastMeasurement = false;
   float kp = 0.0f, ki = 0.0f, kd = 0.0f;
@@ -40,9 +42,14 @@ public:
   float getKd() const { return kd; }
   void setSetPoint(float value) { setPoint = value; }
   float getSetPoint() const { return setPoint; }
+  float getPTerm() const { return lastP_; }
+  float getITerm() const { return integral; }
+  float getDTerm() const { return lastD_; }
 
   void resetState() {
     integral = 0.0f;
+    lastP_ = 0.0f;
+    lastD_ = 0.0f;
     lastMeasurement = 0.0f;
     haveLastMeasurement = false;
   }
@@ -63,6 +70,8 @@ public:
     lastMeasurement = measurement;
     haveLastMeasurement = true;
 
+    lastP_ = proportional;
+    lastD_ = derivative;
     const float withoutNewIntegral = proportional + derivative + integral;
     const float proposedIntegral = integral + ki * periodSec * error;
     // Do not accumulate while already saturated in the same direction;
