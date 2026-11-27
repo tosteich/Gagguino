@@ -35,6 +35,11 @@ public:
   void setSetPoint(float value) { setPoint = value; }
   float getSetPoint() { return setPoint; }
 
+  // Read-only diagnostic accessors. No change to pump or boiler mathematics.
+  float getPTerm() const { return pTerm; }
+  float getITerm() const { return iState; }
+  float getDTerm() const { return dTerm; }
+
   // Retain explicit reset used by sensor-fault protection and mode changes.
   void resetState() {
     iState = 0;
