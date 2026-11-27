@@ -337,7 +337,7 @@ void initWebServerControllers() {
     AsyncWebServerResponse *response=request->beginChunkedResponse(
       "text/csv",
       [snapshot](uint8_t *buffer,size_t maxLen,size_t index)->size_t {
-        const char *header="time_s,temperature_c,pressure_bar,heater_percent,pump_percent,phase\\n";
+        const char *header="time_s,temperature_c,pressure_bar,heater_percent,pump_percent,phase\n";
         size_t cursor=0, written=0;
         auto output=[&](const char *part,size_t length) {
           if (cursor+length>index && written<maxLen) {
@@ -354,7 +354,7 @@ void initWebServerControllers() {
           const ThermalTraceCore::Sample& p=snapshot->at(i);
           char line[100];
           const int length=snprintf(line,sizeof(line),
-             "%.3f,%.1f,%.2f,%u,%u,%s\\n",
+             "%.3f,%.1f,%.2f,%u,%u,%s\n",
              p.relativeMs/1000.0f,p.temperature10/10.0f,
              p.pressure100/100.0f,(unsigned int)p.heater,
              (unsigned int)p.pump,
