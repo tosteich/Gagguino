@@ -33,6 +33,9 @@ int main() {
     assert(cooldown.heatInhibited());
   }
   assert(!cooldown.observe(97.9f,93.0f));
+  assert(cooldown.coolingAfterSteam());
+  assert(cooldown.heatInhibited());
+  assert(!cooldown.observe(93.0f,93.0f));
   assert(!cooldown.coolingAfterSteam());
   assert(!cooldown.heatInhibited());
   assert(!cooldown.observe(88.0f,93.0f));
