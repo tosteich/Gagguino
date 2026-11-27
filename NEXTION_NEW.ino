@@ -178,6 +178,7 @@ void updatePumpGateEnabled(bool enabled) {
 std::atomic<float> publishedCurrentTemperature{-50.0f};
 std::atomic<float> publishedCurrentPressure{0.0f};
 std::atomic<bool> pendingWebReboot{false};
+std::atomic<bool> publishedBoilerOvertempTrip{false};
 
 // Diagnostic only: a long loop gap can delay heater safety decisions.
 // It cannot replace an independent hardware thermal cutoff.
@@ -348,6 +349,7 @@ void updateVariablesFromSensorsData() {
 #ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
       // Latched fail-safe; no manual reset while heater is powered.
       if (experimentalBoilerOvertemp.observe(currentTemperature, boilerPid.getSetPoint())) {
+        publishedBoilerOvertempTrip.store(true);
         boilerPid.resetState();
         heatPower = 0;
       } else {
