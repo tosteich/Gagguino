@@ -5,6 +5,9 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include "GaggiaPid.h"
+#ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
+#include "BoilerPid.h"
+#endif
 #include "webpage.h"
 #include "Thermo_LMT01.h"
 #include "TemperatureGuard.h"
@@ -96,7 +99,11 @@ setting settings[] {
 Preferences preferences;
 EasyNex myNex(Serial2);
 
+#ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
+BoilerPid boilerPid(SENSORS_PERIOD);
+#else
 GaggiaPid boilerPid(SENSORS_PERIOD);
+#endif
 GaggiaPid pumpPid(PUMP_PID_PERIOD);
 Boiler boiler(MAX_BOILER_PERIOD);
 LMT01 thermoLmt;
