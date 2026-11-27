@@ -20,6 +20,14 @@ public:
     uint8_t heater;
     uint8_t pump;
     uint8_t phase;
+    int16_t preciseTemperature100; // 0.01 C, original sensor precision retained
+    int16_t activeP10;
+    int16_t activeI10;
+    int16_t activeD10;
+    int16_t shadowP10;
+    int16_t shadowI10;
+    int16_t shadowD10;
+    uint8_t shadowPower;           // 255 means unavailable / sensor invalid
   };
 
 private:
@@ -29,6 +37,14 @@ private:
     uint16_t pressure100;
     uint8_t heater;
     uint8_t pump;
+    int16_t preciseTemperature100;
+    int16_t activeP10;
+    int16_t activeI10;
+    int16_t activeD10;
+    int16_t shadowP10;
+    int16_t shadowI10;
+    int16_t shadowD10;
+    uint8_t shadowPower;
   };
   PreSample pre_[PRE_SAMPLES]{};
   Sample samples_[MAX_SAMPLES]{};
@@ -46,6 +62,11 @@ private:
     const long v=lroundf(c*10.0f);
     return static_cast<int16_t>(v < -32768 ? -32768 : (v > 32767 ? 32767 : v));
   }
+  static int16_t scaled(float value, float scale) {
+    if (!isfinite(value)) return -32768;
+    const long v=lroundf(value*scale);
+    return static_cast<int16_t>(v < -32767 ? -32767 : (v > 32767 ? 32767 : v));
+  }
   static uint16_t pressure(float bar) {
     if (!isfinite(bar)) return 0;
     const long v=lroundf(bar*100.0f);
@@ -55,7 +76,10 @@ private:
     if (count_>=MAX_SAMPLES) return;
     const int32_t rel=static_cast<int32_t>(now - startMs_);
     samples_[count_++]={rel,reading.temperature10,reading.pressure100,
-                        reading.heater,reading.pump,static_cast<uint8_t>(phase)};
+                        reading.heater,reading.pump,static_cast<uint8_t>(phase),
+                        reading.preciseTemperature100,reading.activeP10,reading.activeI10,
+                        reading.activeD10,reading.shadowP10,reading.shadowI10,
+                        reading.shadowD10,reading.shadowPower};
   }
   void start(uint32_t now) {
     count_=flowCount_=postCount_=0;
@@ -73,9 +97,17 @@ public:
   uint16_t count() const { return count_; }
   const Sample& at(uint16_t index) const { return samples_[index]; }
   void sample(bool flowing, uint32_t now, float tempC, float pressureBar,
-              int heatPercent, int pumpPercent) {
+              int heatPercent, int pumpPercent,
+              float activeP=0.0f, float activeI=0.0f, float activeD=0.0f,
+              float shadowP=0.0f, float shadowI=0.0f, float shadowD=0.0f,
+              int shadowPower=-1) {
     const PreSample reading={now,temperature(tempC),pressure(pressureBar),
-                             percent(heatPercent),percent(pumpPercent)};
+                             percent(heatPercent),percent(pumpPercent),
+                             scaled(tempC,100.0f),
+                             scaled(activeP,10.0f),scaled(activeI,10.0f),
+                             scaled(activeD,10.0f),scaled(shadowP,10.0f),
+                             scaled(shadowI,10.0f),scaled(shadowD,10.0f),
+                             shadowPower<0?static_cast<uint8_t>(255):percent(shadowPower)};
     if(flowing && !wasFlow_) start(now);
     if(state_==FLOW && !flowing && wasFlow_) {
       state_=POST;
