@@ -2,9 +2,10 @@
 #include <Arduino.h>
 #include <math.h>
 
-// EXPERIMENTAL boiler PID, currently used only for shadow diagnostics.
-// The active boiler controller and the pump still use the unchanged GaggiaPid.
-// Do NOT enable this as the actuator controller without separate hardware testing.
+// Boiler temperature PID; selected for heater control on feature/dark-web-ui.
+// Retains derivative filtering, integral limits and above-target unwinding.
+// The pump remains on the original GaggiaPid with unchanged PID mathematics.
+// This algorithm is not a replacement for independent hardware thermal safety.
 class BoilerPid {
 private:
   float integral = 0.0f;
@@ -18,7 +19,8 @@ private:
   const float periodSec;
 
   static constexpr float maxPower = 100.0f;
-  // Initial diagnostic-only parameters; NOT validated boiler tuning.
+  // Tuning frozen after first supervised brew trace (2026-11-27).
+  // Alter only after separate evaluation; these are NOT hardware safety limits.
   static constexpr float maxIntegral = 20.0f;
   static constexpr float derivativeFilterSeconds = 1.5f;
   static constexpr float maxDerivativePower = 30.0f;
