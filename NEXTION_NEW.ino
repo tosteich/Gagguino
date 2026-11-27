@@ -373,7 +373,7 @@ void reportPumpProfileState() {
     Serial.println("PUMP_DIAG flow=0");
     return;
   }
-  Serial.printf("PUMP_DIAG t=%lus pid=%u manual=%u sp=%.1f p=%.1f out=%d valid=%u\\n",
+  Serial.printf("PUMP_DIAG t=%lus pid=%u manual=%u sp=%.1f p=%.1f out=%d valid=%u\n",
     (unsigned long)(stopWatch.getTimerTime() / 1000u),
     (unsigned int)isBrewEnabled,
     (unsigned int)isManual,
@@ -444,7 +444,7 @@ void trigger1() {
 
 void trigger12() {
    isBrewEnabled = !isBrewEnabled;
-   Serial.printf("BREW_MODE pid=%u (Nextion trigger12)\\n",
+   Serial.printf("BREW_MODE pid=%u (Nextion trigger12)\n",
                  (unsigned int)isBrewEnabled);
    // Do not carry pressure PID integral/derivative state across
    // controlled/unregulated mode changes.
