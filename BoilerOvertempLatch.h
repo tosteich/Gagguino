@@ -40,8 +40,9 @@ class BoilerOvertempLatch {
 
     if (steamCooldown_) {
       // Suppress heating for the entire expected high-temperature cooldown.
-      // Re-arm the relative brew safety limit once below its threshold.
-      if (temperatureC < targetC + kMaxAboveTargetC) {
+      // Re-arm only at target: avoids false fault from a small thermal rebound
+      // near target+5 C during a normal, passive steam cooldown.
+      if (temperatureC <= targetC) {
         steamCooldown_ = false;
       } else {
         return false;  // normal hot cooldown, not a latched fault
