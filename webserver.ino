@@ -337,7 +337,10 @@ void initWebServerControllers() {
     AsyncWebServerResponse *response=request->beginChunkedResponse(
       "text/csv",
       [snapshot](uint8_t *buffer,size_t maxLen,size_t index)->size_t {
-        const char *header="time_s,temperature_c,pressure_bar,heater_percent,pump_percent,phase\n";
+        const char *header=
+          "time_s,temperature_c,pressure_bar,heater_percent,pump_percent,phase,"
+          "sensor_temp_precise_c,target_temp_c,active_p,active_i,active_d,"
+          "shadow_p,shadow_i,shadow_d,shadow_percent\\n";
         size_t cursor=0, written=0;
         auto output=[&](const char *part,size_t length) {
           if (cursor+length>index && written<maxLen) {
@@ -352,14 +355,18 @@ void initWebServerControllers() {
         output(header,strlen(header));
         for(uint16_t i=0;i<snapshot->count() && written<maxLen;++i) {
           const ThermalTraceCore::Sample& p=snapshot->at(i);
-          char line[100];
+          char line[200];
           const int length=snprintf(line,sizeof(line),
-             "%.3f,%.1f,%.2f,%u,%u,%s\n",
+             "%.3f,%.1f,%.2f,%u,%u,%s,%.2f,%.2f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%d\\n",
              p.relativeMs/1000.0f,p.temperature10/10.0f,
              p.pressure100/100.0f,(unsigned int)p.heater,
              (unsigned int)p.pump,
              p.phase==ThermalTraceCore::BEFORE?"pre":
-             p.phase==ThermalTraceCore::BREW?"brew":"post");
+             p.phase==ThermalTraceCore::BREW?"brew":"post",
+             p.preciseTemperature100/100.0f,p.targetTemperature100/100.0f,
+             p.activeP10/10.0f,p.activeI10/10.0f,p.activeD10/10.0f,
+             p.shadowP10/10.0f,p.shadowI10/10.0f,p.shadowD10/10.0f,
+             p.shadowPower==255?-1:(int)p.shadowPower);
           if(length>0 && (size_t)length<sizeof(line))
              output(line,(size_t)length);
         }
