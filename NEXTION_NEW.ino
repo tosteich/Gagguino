@@ -5,9 +5,7 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include "GaggiaPid.h"
-#ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
-#include "BoilerPid.h"
-#endif
+#include "BoilerPid.h"  // Shadow diagnostics, never drives heater unless explicitly selected.
 #include "webpage.h"
 #include "Thermo_LMT01.h"
 #include "TemperatureGuard.h"
@@ -107,6 +105,12 @@ BoilerPid boilerPid(SENSORS_PERIOD);
 GaggiaPid boilerPid(SENSORS_PERIOD);
 #endif
 GaggiaPid pumpPid(PUMP_PID_PERIOD);
+#ifndef GAGGUINO_EXPERIMENTAL_BOILER_PID
+// Shadow controller runs in parallel, but its output is never sent to Boiler.
+BoilerPid shadowBoilerPid(SENSORS_PERIOD);
+bool shadowBoilerInitialized = false;
+int shadowBoilerPower = -1;
+#endif
 Boiler boiler(MAX_BOILER_PERIOD);
 LMT01 thermoLmt;
 TemperatureGuard temperatureGuard;
@@ -276,7 +280,15 @@ void loop() {
     // Try-lock only: never wait for a browser download in the control loop.
     if (thermalTraceMutex && xSemaphoreTake(thermalTraceMutex, 0) == pdTRUE) {
       thermalTrace.sample(stopWatch.getIsFlow(), millis(),
-                          currentTemperature, currentPressure, heatPower, (int)pumpPower);
+                          currentTemperature, currentPressure, heatPower, (int)pumpPower,
+                          boilerPid.getPTerm(), boilerPid.getITerm(), boilerPid.getDTerm(),
+#ifndef GAGGUINO_EXPERIMENTAL_BOILER_PID
+                          shadowBoilerPid.getPTerm(), shadowBoilerPid.getITerm(),
+                          shadowBoilerPid.getDTerm(), shadowBoilerPower
+#else
+                          0.0f, 0.0f, 0.0f, -1
+#endif
+                          );
       xSemaphoreGive(thermalTraceMutex);
     }
   }
@@ -293,6 +305,10 @@ void loop() {
     boilerPidSensorWasFresh = false;
     heatPower = 0;
     boiler.setHeatPower(0);
+#ifndef GAGGUINO_EXPERIMENTAL_BOILER_PID
+    if (shadowBoilerInitialized) shadowBoilerPid.resetState();
+    shadowBoilerPower = -1;
+#endif
   } else {
     boilerPidSensorWasFresh = true;
   }
@@ -324,8 +340,32 @@ void updateVariablesFromSensorsData() {
       heatPower = 100;  // USB-only bench: GPIO14 MUST be unconnected.
 #else
       heatPower = boilerPid.getResult(currentTemperature);
+#ifndef GAGGUINO_EXPERIMENTAL_BOILER_PID
+      // Shadow uses identical live input and PID coefficients. No actuator calls.
+      const float shadowTarget = boilerPid.getSetPoint();
+      if (!shadowBoilerInitialized) {
+        shadowBoilerPid.setupPid(boilerPid.getKp(),boilerPid.getKi(),
+                               boilerPid.getKd(),shadowTarget);
+        shadowBoilerInitialized = true;
+      } else {
+        shadowBoilerPid.setKp(boilerPid.getKp());
+        shadowBoilerPid.setKi(boilerPid.getKi());
+        shadowBoilerPid.setKd(boilerPid.getKd());
+        if (shadowBoilerPid.getSetPoint() != shadowTarget) {
+          shadowBoilerPid.resetState();
+          shadowBoilerPid.setSetPoint(shadowTarget);
+        }
+      }
+      shadowBoilerPower = shadowBoilerPid.getResult(currentTemperature);
+#endif
 #endif
     }
+#ifndef GAGGUINO_EXPERIMENTAL_BOILER_PID
+    if (!(temperatureGuard.fresh(millis()) && currentTemperature > 0 && currentTemperature < 145)) {
+      if (shadowBoilerInitialized) shadowBoilerPid.resetState();
+      shadowBoilerPower = -1;
+    }
+#endif
     boiler.setHeatPower(heatPower);
     stopWatch.run(ws, myNex);
   }
