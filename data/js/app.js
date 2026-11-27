@@ -632,6 +632,44 @@
       status.textContent=t("fsFailed")+error.message;
     }finally{button.disabled=false;}
   }
+  // RAM-only thermal diagnostic trace, separate from the LittleFS shot archive.
+  async function refreshThermalTrace() {
+    const status=$("thermalTraceStatus");
+    const button=$("downloadThermalTrace");
+    try {
+      const response=await fetch("/api/thermal-trace/status",{cache:"no-store"});
+      if(!response.ok)throw Error("HTTP "+response.status);
+      const state=await response.json();
+      if(!Number.isInteger(state.samples)||state.samples<0||
+         !["idle","flow","post","ready"].includes(state.state))throw Error("Invalid status");
+      const labels=language==="uk"
+        ?{idle:"Очікування наступного проливу",flow:"Запис проливу",post:"Запис 60 секунд після проливу",ready:"Запис готовий"}
+        :{idle:"Waiting for next shot",flow:"Recording shot",post:"Recording 60 seconds after shot",ready:"Trace ready"};
+      status.textContent=labels[state.state]+" · "+state.samples+" "+(language==="uk"?"вимірювань":"samples");
+      button.disabled=state.state!=="ready";
+    }catch(error){
+      status.textContent=(language==="uk"?"Немає доступу до журналу: ":"Trace unavailable: ")+error.message;
+      button.disabled=true;
+    }
+  }
+  $("refreshThermalTrace").addEventListener("click",refreshThermalTrace);
+  $("downloadThermalTrace").addEventListener("click",async()=>{
+    const button=$("downloadThermalTrace");
+    button.disabled=true;
+    try {
+      const response=await fetch("/api/thermal-trace.csv",{cache:"no-store"});
+      if(!response.ok)throw Error("HTTP "+response.status);
+      const blob=await response.blob();
+      if(blob.size>150000)throw Error("Trace exceeds limit");
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;a.download="gagguino-thermal-trace.csv";
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),5000);
+    }catch(error){
+      $("thermalTraceStatus").textContent=(language==="uk"?"Не вдалося завантажити: ":"Download failed: ")+error.message;
+    }finally{await refreshThermalTrace();}
+  });
   $("refreshStorage").addEventListener("click",refreshStorage);
   $("rebootButton").addEventListener("click",()=>{
     if(!connected){message(t("noConnection"),true);return;}
@@ -656,4 +694,13 @@
   window.addEventListener("hashchange",navigate);
   window.addEventListener("resize",drawCharts);
   buildSettingsFields();initChartPointers();updateArchiveButtons();navigate();publish();connect();applyLanguage(language);
+  refreshThermalTrace();
+  document.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>setTimeout(()=>{
+    const uk=language==="uk";
+    $("thermalTraceHeading").textContent=uk?"Теплова діагностика":"Thermal diagnostics";
+    $("refreshThermalTrace").textContent=uk?"Оновити":"Refresh";
+    $("thermalTraceHint").textContent=uk?"20 с до проливу, до 120 с проливу та 60 с після. Зберігається тільки в RAM до наступного проливу або перезапуску ESP32.":"20s before, up to 120s during, 60s after a shot. Stored in RAM until the next shot or ESP32 restart.";
+    $("downloadThermalTrace").textContent=uk?"Завантажити CSV":"Download CSV";
+    refreshThermalTrace();
+  },0)));
 })();
