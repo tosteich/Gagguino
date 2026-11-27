@@ -1,3 +1,5 @@
+#include <memory>
+#include <new>
 #include <LittleFS.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -294,6 +296,78 @@ void initWebServerControllers() {
     } else {
       request->send_P(200, "text/html", index_html, processor);
     }
+  });
+
+  // Diagnostic-only thermal trace. Capture stays in RAM; web callbacks
+  // copy a completed trace briefly under mutex, then stream CSV without locks.
+  server.on("/api/thermal-trace/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!thermalTraceMutex || xSemaphoreTake(thermalTraceMutex, 0) != pdTRUE) {
+      request->send(503, "application/json", "{\"error\":\"busy\"}");
+      return;
+    }
+    const ThermalTraceCore::State state=thermalTrace.state();
+    const uint16_t count=thermalTrace.count();
+    xSemaphoreGive(thermalTraceMutex);
+    const char *name=state==ThermalTraceCore::READY?"ready":
+                     state==ThermalTraceCore::POST?"post":
+                     state==ThermalTraceCore::FLOW?"flow":"idle";
+    const String body=String("{\"state\":\"")+name+"\",\"samples\":"+String(count)+"}";
+    AsyncWebServerResponse *response=request->beginResponse(200,"application/json",body);
+    response->addHeader("Cache-Control","no-store");
+    request->send(response);
+  });
+  server.on("/api/thermal-trace.csv", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!thermalTraceMutex || xSemaphoreTake(thermalTraceMutex,0)!=pdTRUE) {
+      request->send(503,"text/plain","Trace busy");
+      return;
+    }
+    const bool ready=thermalTrace.state()==ThermalTraceCore::READY;
+    if (!ready) {
+      xSemaphoreGive(thermalTraceMutex);
+      request->send(409,"text/plain","Complete one shot and wait 60 seconds");
+      return;
+    }
+    ThermalTraceCore *copy=new(std::nothrow) ThermalTraceCore(thermalTrace);
+    xSemaphoreGive(thermalTraceMutex);
+    if (!copy) {
+      request->send(503,"text/plain","Not enough RAM for trace snapshot");
+      return;
+    }
+    std::shared_ptr<ThermalTraceCore> snapshot(copy);
+    AsyncWebServerResponse *response=request->beginChunkedResponse(
+      "text/csv",
+      [snapshot](uint8_t *buffer,size_t maxLen,size_t index)->size_t {
+        const char *header="time_s,temperature_c,pressure_bar,heater_percent,pump_percent,phase\\n";
+        size_t cursor=0, written=0;
+        auto output=[&](const char *part,size_t length) {
+          if (cursor+length>index && written<maxLen) {
+            const size_t offset=index>cursor?index-cursor:0;
+            const size_t remaining=length-offset;
+            const size_t amount=remaining<maxLen-written?remaining:maxLen-written;
+            memcpy(buffer+written,part+offset,amount);
+            written+=amount;
+          }
+          cursor+=length;
+        };
+        output(header,strlen(header));
+        for(uint16_t i=0;i<snapshot->count() && written<maxLen;++i) {
+          const ThermalTraceCore::Sample& p=snapshot->at(i);
+          char line[100];
+          const int length=snprintf(line,sizeof(line),
+             "%.3f,%.1f,%.2f,%u,%u,%s\\n",
+             p.relativeMs/1000.0f,p.temperature10/10.0f,
+             p.pressure100/100.0f,(unsigned int)p.heater,
+             (unsigned int)p.pump,
+             p.phase==ThermalTraceCore::BEFORE?"pre":
+             p.phase==ThermalTraceCore::BREW?"brew":"post");
+          if(length>0 && (size_t)length<sizeof(line))
+             output(line,(size_t)length);
+        }
+        return written;
+      });
+    response->addHeader("Content-Disposition","attachment; filename=\"gagguino-thermal-trace.csv\"");
+    response->addHeader("Cache-Control","no-store");
+    request->send(response);
   });
 
   // Read-only filesystem diagnostics; 503 means archive writer is busy.
