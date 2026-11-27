@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/esp32-timer-and-heater-safety
+      - feature/dark-web-ui
   pull_request:
   workflow_dispatch:
 
