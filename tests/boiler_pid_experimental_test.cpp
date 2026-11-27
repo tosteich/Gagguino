@@ -10,8 +10,8 @@ int main() {
   BoilerPid derivative(200);
   derivative.setupPid(0, 0, 9, 93);
   assert(derivative.getResult(92) == 0); // no D spike on first sample
-  assert(derivative.getResult(91) == 45); // -1 degree / .2 s => +45%
-  assert(derivative.getResult(92) == 0); // +1 degree / .2 s => -45%
+  assert(derivative.getResult(91) == 5); // filtered: -5 C/s -> +5.29%
+  assert(derivative.getResult(92) == 0); // rising temperature suppresses heat
   derivative.resetState();
   assert(derivative.getResult(92) == 0);
 
@@ -29,6 +29,34 @@ int main() {
   assert(integral.getResult(92)==1);
   integral.setSetPoint(90);
   assert(integral.getResult(93) == 0); // integral can unwind
+
+  // Extended warm-up at 90 C must never accumulate more than 20% integral.
+  BoilerPid warmup(200);
+  warmup.setupPid(6, .2f, 9, 93);
+  for (int i=0;i<2000;++i) warmup.getResult(90);
+  assert(warmup.getITerm()<=20.0001f);
+  // Once the temperature exceeds target, old integral must bleed away.
+  float initialIntegral=warmup.getITerm();
+  for (int i=0;i<50;++i) warmup.getResult(93.1f);
+  assert(warmup.getITerm()<initialIntegral*0.25f);
+
+  // One sensor jump must not generate a huge derivative spike.
+  BoilerPid filtered(200);
+  filtered.setupPid(6, .2f, 9, 93);
+  filtered.getResult(93);
+  filtered.getResult(92);
+  assert(filtered.getDTerm()>0 && filtered.getDTerm()<10.0f);
+  filtered.getResult(100);
+  assert(filtered.getDTerm()>=-30.0f && filtered.getDTerm()<=30.0f);
+  filtered.resetState();
+  filtered.getResult(93);
+  assert(filtered.getDTerm()==0);
+
+  // Steady temperature at/above target should not accumulate positive integral.
+  BoilerPid steady(200);
+  steady.setupPid(6, .2f, 9, 93);
+  for (int i=0;i<2000;++i) steady.getResult(93.2f);
+  assert(steady.getITerm()==0.0f);
 
   // Faults and mode changes clear controller memory.
   BoilerPid invalid(200);
