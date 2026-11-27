@@ -9,9 +9,7 @@ void checkSteamButtonStatus() {
         steamButtonJustPressed = true;
         isSteaming = true;
         boilerPid.resetState();
-#ifndef GAGGUINO_EXPERIMENTAL_BOILER_PID
         if (shadowBoilerInitialized) shadowBoilerPid.resetState();
-#endif
         boilerPid.setSetPoint(settings[STEAM_TEMP].value);
       }
     } else {
@@ -19,9 +17,7 @@ void checkSteamButtonStatus() {
         steamButtonJustPressed = false;
         isSteaming = false;
         boilerPid.resetState();
-#ifndef GAGGUINO_EXPERIMENTAL_BOILER_PID
         if (shadowBoilerInitialized) shadowBoilerPid.resetState();
-#endif
         boilerPid.setSetPoint(settings[TARGET_TEMP].value);
       }
     }
