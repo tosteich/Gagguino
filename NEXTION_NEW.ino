@@ -21,6 +21,8 @@
 #include "ManualPressure.h"
 #include "LoopTimingStats.h"
 #include "ShotArchive.h"
+#include "ThermalTraceCore.h"
+#include <freertos/semphr.h>
 #include "UsbWebAssetUpdater.h"
 
 #define BUTTON_PIN 32  //button
@@ -121,6 +123,9 @@ AsyncWebSocket ws("/ws");
 
 StopWatch stopWatch;
 ShotArchive shotArchive;
+// Diagnostic only: no flash I/O or actuator changes.
+ThermalTraceCore thermalTrace;
+SemaphoreHandle_t thermalTraceMutex = nullptr;
 #ifdef GAGGUINO_USB_WEB_UPDATE
 UsbWebAssetUpdater usbWebAssetUpdater;
 #endif
@@ -268,6 +273,12 @@ void loop() {
   if (sensorsReadyThisLoop) {
     shotArchive.sample(stopWatch.getIsFlow(), stopWatch.getTimerTime(),
                        currentTemperature, currentPressure, heatPower, (int)pumpPower);
+    // Try-lock only: never wait for a browser download in the control loop.
+    if (thermalTraceMutex && xSemaphoreTake(thermalTraceMutex, 0) == pdTRUE) {
+      thermalTrace.sample(stopWatch.getIsFlow(), millis(),
+                          currentTemperature, currentPressure, heatPower, (int)pumpPower);
+      xSemaphoreGive(thermalTraceMutex);
+    }
   }
 
   updatePumpPower();
