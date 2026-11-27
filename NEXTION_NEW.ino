@@ -284,9 +284,9 @@ void loop() {
                           boilerPid.getPTerm(), boilerPid.getITerm(), boilerPid.getDTerm(),
 #ifndef GAGGUINO_EXPERIMENTAL_BOILER_PID
                           shadowBoilerPid.getPTerm(), shadowBoilerPid.getITerm(),
-                          shadowBoilerPid.getDTerm(), shadowBoilerPower
+                          shadowBoilerPid.getDTerm(), shadowBoilerPower, boilerPid.getSetPoint()
 #else
-                          0.0f, 0.0f, 0.0f, -1
+                          0.0f, 0.0f, 0.0f, -1, boilerPid.getSetPoint()
 #endif
                           );
       xSemaphoreGive(thermalTraceMutex);
