@@ -349,7 +349,10 @@ void updateVariablesFromSensorsData() {
 #ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
       // Latched fail-safe; no manual reset while heater is powered.
       if (experimentalBoilerOvertemp.observe(currentTemperature, boilerPid.getSetPoint())) {
-        publishedBoilerOvertempTrip.store(true);
+        if (!publishedBoilerOvertempTrip.exchange(true)) {
+          Serial.printf("BOILER_OVERTEMP_LATCH temp=%.2f target=%.2f HEAT_OFF\\n",
+                        currentTemperature, boilerPid.getSetPoint());
+        }
         boilerPid.resetState();
         heatPower = 0;
       } else {
