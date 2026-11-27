@@ -350,7 +350,7 @@ void updateVariablesFromSensorsData() {
       // Latched fail-safe; no manual reset while heater is powered.
       if (experimentalBoilerOvertemp.observe(currentTemperature, boilerPid.getSetPoint())) {
         if (!publishedBoilerOvertempTrip.exchange(true)) {
-          Serial.printf("BOILER_OVERTEMP_LATCH temp=%.2f target=%.2f HEAT_OFF\\n",
+          Serial.printf("BOILER_OVERTEMP_LATCH temp=%.2f target=%.2f HEAT_OFF\n",
                         currentTemperature, boilerPid.getSetPoint());
         }
         boilerPid.resetState();
