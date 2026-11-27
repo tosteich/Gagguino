@@ -1,8 +1,10 @@
 #pragma once
-// Select the boiler PID implementation at firmware build time.
-// Experimental mode affects ONLY boiler heater regulation, never pump PID.
-// Revert this define to return to the previous proven controller.
-// Requires an intact independent thermal cutout and supervised validation.
+// Selected boiler temperature controller (2026-11-27).
+// A supervised shot trace showed 92.44..93.13 C during a 45s extraction
+// at a 93 C setpoint; this is a single field observation, not a safety proof.
+// Selection affects ONLY boiler heater regulation; pump PID is unchanged.
+// Comment out the next line to revert the BOILER to legacy GaggiaPid.
+// Keep an independent functioning hardware thermal cutoff.
 #define GAGGUINO_EXPERIMENTAL_BOILER_PID
 
 // Enable only on an isolated USB-powered ESP32. NEVER on installed equipment.
