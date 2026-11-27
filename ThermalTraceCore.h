@@ -21,6 +21,7 @@ public:
     uint8_t pump;
     uint8_t phase;
     int16_t preciseTemperature100; // 0.01 C, original sensor precision retained
+    int16_t targetTemperature100;
     int16_t activeP10;
     int16_t activeI10;
     int16_t activeD10;
@@ -38,6 +39,7 @@ private:
     uint8_t heater;
     uint8_t pump;
     int16_t preciseTemperature100;
+    int16_t targetTemperature100;
     int16_t activeP10;
     int16_t activeI10;
     int16_t activeD10;
@@ -77,7 +79,7 @@ private:
     const int32_t rel=static_cast<int32_t>(now - startMs_);
     samples_[count_++]={rel,reading.temperature10,reading.pressure100,
                         reading.heater,reading.pump,static_cast<uint8_t>(phase),
-                        reading.preciseTemperature100,reading.activeP10,reading.activeI10,
+                        reading.preciseTemperature100,reading.targetTemperature100,reading.activeP10,reading.activeI10,
                         reading.activeD10,reading.shadowP10,reading.shadowI10,
                         reading.shadowD10,reading.shadowPower};
   }
@@ -100,10 +102,10 @@ public:
               int heatPercent, int pumpPercent,
               float activeP=0.0f, float activeI=0.0f, float activeD=0.0f,
               float shadowP=0.0f, float shadowI=0.0f, float shadowD=0.0f,
-              int shadowPower=-1) {
+              int shadowPower=-1, float targetTemp=0.0f) {
     const PreSample reading={now,temperature(tempC),pressure(pressureBar),
                              percent(heatPercent),percent(pumpPercent),
-                             scaled(tempC,100.0f),
+                             scaled(tempC,100.0f),scaled(targetTemp,100.0f),
                              scaled(activeP,10.0f),scaled(activeI,10.0f),
                              scaled(activeD,10.0f),scaled(shadowP,10.0f),
                              scaled(shadowI,10.0f),scaled(shadowD,10.0f),
