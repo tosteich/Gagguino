@@ -34,6 +34,8 @@ void setup(void) {
 
   initWebFiles();
   shotArchive.begin();
+  thermalTraceMutex = xSemaphoreCreateMutex();
+  if (!thermalTraceMutex) Serial.println("THERMAL_TRACE: mutex creation failed");
   initBoilerWebCommandQueue();
   initFullWebSettingsQueue();
   initWebSocket();
