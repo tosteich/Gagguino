@@ -52,5 +52,20 @@ int main() {
   assert(rollover.at(0).relativeMs==-400);
   assert(rollover.at(1).relativeMs==-200);
   assert(rollover.at(2).relativeMs==0);
+  // Extended diagnostics must preserve precise sensor and both PID terms.
+  ThermalTraceCore diagnostics;
+  diagnostics.sample(false,0,93.214f,0.0f,12,0,1.2f,13.4f,-2.5f,
+                     -3.5f,4.2f,-0.1f,17,93.0f);
+  diagnostics.sample(true,200,93.217f,1.2f,14,50,1.3f,13.5f,-2.1f,
+                     -3.4f,4.1f,-0.2f,18,93.0f);
+  const auto &d=diagnostics.at(1);
+  assert(d.preciseTemperature100==9322);
+  assert(d.targetTemperature100==9300);
+  assert(d.activeP10==13 && d.activeI10==135 && d.activeD10==-21);
+  assert(d.shadowP10==-34 && d.shadowI10==41 && d.shadowD10==-2);
+  assert(d.shadowPower==18);
+  diagnostics.sample(false,400,93,0,0,0,0,0,0,0,0,0,-1,93);
+  assert(diagnostics.at(2).shadowPower==255);
+
   std::cout<<"Thermal trace pre/shot/post, rollover and bounds passed\n";
 }
