@@ -6,6 +6,7 @@
 #include <AsyncTCP.h>
 #include "GaggiaPid.h"
 #include "BoilerPid.h"  // Shadow diagnostics, never drives heater unless explicitly selected.
+#include "BoilerOvertempLatch.h"
 #include "webpage.h"
 #include "Thermo_LMT01.h"
 #include "TemperatureGuard.h"
@@ -114,6 +115,9 @@ BoilerPid shadowBoilerPid(SENSORS_PERIOD);
 bool shadowBoilerInitialized = false;
 int shadowBoilerPower = -1;
 Boiler boiler(MAX_BOILER_PERIOD);
+#ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
+BoilerOvertempLatch experimentalBoilerOvertemp;
+#endif
 LMT01 thermoLmt;
 TemperatureGuard temperatureGuard;
 Manometer manometer;
@@ -307,6 +311,13 @@ void loop() {
   } else {
     boilerPidSensorWasFresh = true;
   }
+#ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
+  // Never allow queued/new PID commands to re-enable heat after trip.
+  if (experimentalBoilerOvertemp.tripped()) {
+    heatPower = 0;
+    boiler.setHeatPower(0);
+  }
+#endif
   boiler.updateHeater();
 
   firstRefresh();
@@ -334,7 +345,17 @@ void updateVariablesFromSensorsData() {
 #ifdef GAGGUINO_LMT_BENCH_TEST
       heatPower = 100;  // USB-only bench: GPIO14 MUST be unconnected.
 #else
+#ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
+      // Latched fail-safe; no manual reset while heater is powered.
+      if (experimentalBoilerOvertemp.observe(currentTemperature, boilerPid.getSetPoint())) {
+        boilerPid.resetState();
+        heatPower = 0;
+      } else {
+        heatPower = boilerPid.getResult(currentTemperature);
+      }
+#else
       heatPower = boilerPid.getResult(currentTemperature);
+#endif
       // Shadow uses identical live input and PID coefficients. No actuator calls.
       const float shadowTarget = boilerPid.getSetPoint();
       if (!shadowBoilerInitialized) {
