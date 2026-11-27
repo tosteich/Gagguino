@@ -314,7 +314,7 @@ void loop() {
   }
 #ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
   // Never allow queued/new PID commands to re-enable heat after trip.
-  if (experimentalBoilerOvertemp.tripped()) {
+  if (experimentalBoilerOvertemp.heatInhibited()) {
     heatPower = 0;
     boiler.setHeatPower(0);
   }
@@ -348,11 +348,14 @@ void updateVariablesFromSensorsData() {
 #else
 #ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
       // Latched fail-safe; no manual reset while heater is powered.
-      if (experimentalBoilerOvertemp.observe(currentTemperature, boilerPid.getSetPoint())) {
-        if (!publishedBoilerOvertempTrip.exchange(true)) {
-          Serial.printf("BOILER_OVERTEMP_LATCH temp=%.2f target=%.2f HEAT_OFF\n",
-                        currentTemperature, boilerPid.getSetPoint());
-        }
+      const bool overtempFault =
+          experimentalBoilerOvertemp.observe(currentTemperature, boilerPid.getSetPoint());
+      if (overtempFault && !publishedBoilerOvertempTrip.exchange(true)) {
+        Serial.printf("BOILER_OVERTEMP_LATCH temp=%.2f target=%.2f HEAT_OFF\n",
+                      currentTemperature, boilerPid.getSetPoint());
+      }
+      if (experimentalBoilerOvertemp.heatInhibited()) {
+        // Steam cooldown: OFF without fault. Real overtemperature: latched OFF.
         boilerPid.resetState();
         heatPower = 0;
       } else {
