@@ -323,7 +323,7 @@ public final class MainActivity extends Activity {
             +"document.addEventListener('click',function(e){"
             +"var a=e.target.closest&&e.target.closest('a[download]');"
             +"if(!a||!a.href.startsWith('blob:'))return;"
-            +"if(!/^gagguino-shot-[0-9]+\\.csv$/.test(a.download))return;"
+            +"if(!/^(gagguino-shot-[0-9]+|gagguino-thermal-trace)\\.csv$/.test(a.download))return;"
             +"e.preventDefault();e.stopImmediatePropagation();"
             +"fetch(a.href).then(function(r){return r.blob()}).then(function(blob){"
             +"if(blob.size>256000)throw Error('CSV too large');"
@@ -336,7 +336,7 @@ public final class MainActivity extends Activity {
 
     private class CsvSaver {
         @JavascriptInterface public void saveCsv(String name,String encoded){
-            if(name==null || !name.matches("gagguino-shot-[0-9]+\\.csv")
+            if(name==null || !name.matches("(gagguino-shot-[0-9]+|gagguino-thermal-trace)\\.csv")
                   || encoded==null || encoded.length()>CSV_LIMIT*2)return;
             byte[] data;
             try{data=Base64.decode(encoded,Base64.DEFAULT);}catch(IllegalArgumentException e){return;}
