@@ -43,7 +43,8 @@ void setup(void) {
 
   myNex.writeStr("page 0");
   delay(50);
-  myNex.writeNum("isBrewEnabled", true);
+  // Mirror the ESP32 control mode on Nextion at startup.
+  myNex.writeNum("isBrewEnabled", isBrewEnabled);
 
   myNex.lastCurrentPageId = 1;
   
