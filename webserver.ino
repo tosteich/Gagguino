@@ -298,6 +298,19 @@ void initWebServerControllers() {
     }
   });
 
+  // Read-only identification of the controller compiled into this firmware.
+  server.on("/api/system/boiler-pid", HTTP_GET, [](AsyncWebServerRequest *request) {
+#ifdef GAGGUINO_EXPERIMENTAL_BOILER_PID
+    const String json = String("{\"active\":\"experimental\",\"shadow\":\"legacy\",\"overtempTripped\":")
+                      + (publishedBoilerOvertempTrip.load() ? "true" : "false") + "}";
+#else
+    const String json = "{\"active\":\"legacy\",\"shadow\":\"experimental\",\"overtempTripped\":false}";
+#endif
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
+    response->addHeader("Cache-Control", "no-store");
+    request->send(response);
+  });
+
   // Diagnostic-only thermal trace. Capture stays in RAM; web callbacks
   // copy a completed trace briefly under mutex, then stream CSV without locks.
   server.on("/api/thermal-trace/status", HTTP_GET, [](AsyncWebServerRequest *request) {
