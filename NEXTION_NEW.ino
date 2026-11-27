@@ -60,7 +60,8 @@ void setPumpPulsesEnabled(bool enabled); // Implemented in pump.ino.
 volatile int pumpPower = 100;    
 long resetTime = 0;
 long currTimeInSec = 0;
-boolean isBrewEnabled = false;
+// Default matches the Nextion mode initialized in setup().
+boolean isBrewEnabled = true;
 boolean isSteaming = false;
 boolean isManual = false;
 int manualPressure=0;
@@ -263,6 +264,7 @@ void loop() {
   }
 
   updatePumpPower();
+  reportPumpProfileState();
 
   // Loss of qualified LMT01 data must disable heat between sensor updates.
   const bool temperatureFresh = temperatureGuard.fresh(millis());
@@ -350,6 +352,37 @@ void updatePumpPower()
   updatePumpGateEnabled(true);
 }
 
+// Diagnostic only: sample the active pump mode without changing its control
+// path. UART is 9600 baud, so only enqueue a short line when TX has room.
+void reportPumpProfileState() {
+  static bool previousFlow = false;
+  static bool previousMode = true;
+  static uint32_t lastReportMs = 0;
+  const bool flow = stopWatch.getIsFlow();
+  const uint32_t now = millis();
+  const bool transition = (flow != previousFlow) ||
+                          (flow && isBrewEnabled != previousMode);
+  const bool periodic = flow && (uint32_t)(now - lastReportMs) >= 2000;
+  previousFlow = flow;
+  previousMode = isBrewEnabled;
+  if (!transition && !periodic) return;
+  // Never hold up time-sensitive pump/heater work for Serial output.
+  if (Serial.availableForWrite() < 90) return;
+  lastReportMs = now;
+  if (!flow) {
+    Serial.println("PUMP_DIAG flow=0");
+    return;
+  }
+  Serial.printf("PUMP_DIAG t=%lus pid=%u manual=%u sp=%.1f p=%.1f out=%d valid=%u\\n",
+    (unsigned long)(stopWatch.getTimerTime() / 1000u),
+    (unsigned int)isBrewEnabled,
+    (unsigned int)isManual,
+    pumpPid.getSetPoint() / 10.0f,
+    currentPressure,
+    (int)pumpPower,
+    (unsigned int)manometer.isValid());
+}
+
 void updateUi() {
   if (displayTimer.ready()) {
     updateGraphsInfo();
@@ -410,9 +443,9 @@ void trigger1() {
 }
 
 void trigger12() {
-   Serial.print("PRESSED, isBrewEnabled-");
-   Serial.println(isBrewEnabled);
    isBrewEnabled = !isBrewEnabled;
+   Serial.printf("BREW_MODE pid=%u (Nextion trigger12)\\n",
+                 (unsigned int)isBrewEnabled);
    // Do not carry pressure PID integral/derivative state across
    // controlled/unregulated mode changes.
    pumpPid.resetState();
